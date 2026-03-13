@@ -1004,11 +1004,11 @@ function renderManifestoPreview(
     }> = [
       {
         nameLines: ["HSPorter"],
-        details: ["AI for trade compliance.", "Got a YC interview."],
+        details: ["AI-powered trade compliance."],
       },
       {
-        nameLines: ["Ideas of NYC", "(IoNYC)"],
-        details: ["Visualizer for NYC participatory budgeting."],
+        nameLines: ["Ideas of NYC"],
+        details: ["Mapping NYC's participatory budget."],
       },
     ];
     const projectNameSize = clamp(layout.width * 0.062, 24, 28);
