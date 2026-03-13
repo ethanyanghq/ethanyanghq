@@ -981,8 +981,7 @@ function renderManifestoPreview(
       x,
       cursorY,
       [
-        "I build and write. I'm at Cornell right now.",
-        "I think about products and institutional design.",
+        "I build and write at Cornell.",
         "Interviewed at YC, published in The Concord Review.",
       ],
       {
