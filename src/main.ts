@@ -1217,7 +1217,7 @@ function renderManifestoPreview(
 
   const sections: Array<{
     label: string;
-    items: Array<{ title: string; detail?: string; image?: string }>;
+    items: Array<{ title: string; detail?: string; image?: string; link?: string }>;
   }> = [
     {
       label: "Favorite artist",
@@ -1226,9 +1226,9 @@ function renderManifestoPreview(
     {
       label: "Favorite songs",
       items: [
-        { title: "Tesselation", detail: "Mild High Club" },
-        { title: "Juna", detail: "Clairo" },
-        { title: "Scheherazade II", detail: "Rimsky-Korsakov" },
+        { title: "Tesselation", detail: "Mild High Club", link: "https://open.spotify.com/track/3BIzHNxAQbRTY4LCp1oMR1" },
+        { title: "Juna", detail: "Clairo", link: "https://open.spotify.com/track/2mWfVxEo4xZYDaz0v7hYrN" },
+        { title: "Ballade No. 1 in G Minor", detail: "Chopin", link: "https://open.spotify.com/track/5Ks5ENUFNQDfaqxjZnCkVJ" },
       ],
     },
     {
@@ -1265,28 +1265,125 @@ function renderManifestoPreview(
           t.detail.size * 0.6
         : x;
 
+    const lineH = t.detail.size * t.detail.lineHeight;
+    const sectionTopY = cursorY;
+    const sectionHeight = items.length * lineH;
+    const embedHeight = 80;
+    const embedAnchorY = sectionTopY + (sectionHeight - embedHeight) / 2;
+
+    let activeOverlay: HTMLDivElement | null = null;
+    let activeTitle: SVGTextElement | null = null;
+    let activeDetail: SVGTextElement | null = null;
+    let outsideListener: ((e: MouseEvent) => void) | null = null;
+
+    const dismissEmbed = (): void => {
+      if (activeOverlay) {
+        activeOverlay.remove();
+        activeOverlay = null;
+      }
+      if (activeTitle) {
+        activeTitle.setAttribute("visibility", "visible");
+        activeTitle = null;
+      }
+      if (activeDetail) {
+        activeDetail.setAttribute("visibility", "visible");
+        activeDetail = null;
+      }
+      if (outsideListener) {
+        document.removeEventListener("pointerdown", outsideListener, true);
+        outsideListener = null;
+      }
+    };
+
     items.forEach((item) => {
+      const titleNode = appendText(parent, x, cursorY, item.title, {
+        fill: t.colors.body,
+        fontFamily: SANS_FONT,
+        fontSize: t.detail.size,
+        fontWeight: t.detail.weight,
+      });
+
+      let detailNode: SVGTextElement | null = null;
       if (item.detail) {
-        appendText(parent, x, cursorY, item.title, {
-          fill: t.colors.body,
-          fontFamily: SANS_FONT,
-          fontSize: t.detail.size,
-          fontWeight: t.detail.weight,
-        });
-        appendText(parent, detailColumnX, cursorY, item.detail, {
+        detailNode = appendText(parent, detailColumnX, cursorY, item.detail, {
           fill: t.colors.detail,
           fontFamily: SANS_FONT,
           fontSize: t.detail.size,
           fontWeight: t.detail.weight,
           fontStyle: "italic",
         });
-      } else {
-        appendText(parent, x, cursorY, item.title, {
-          fill: t.colors.body,
-          fontFamily: SANS_FONT,
-          fontSize: t.detail.size,
-          fontWeight: t.detail.weight,
-        });
+      }
+
+      if (item.link) {
+        const trackId = item.link.split("/track/")[1]?.split("?")[0];
+        if (trackId) {
+          const hitPad = 4;
+
+          const hit = createSvgElement("rect", {
+            x: x - hitPad,
+            y: cursorY - hitPad,
+            width: layout.width + hitPad * 2,
+            height: lineH + hitPad * 2,
+            fill: "transparent",
+            "pointer-events": "all",
+          });
+          hit.style.cursor = "pointer";
+          parent.append(hit);
+
+          hit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const svg = parent.closest("svg") as SVGSVGElement | null;
+            if (!svg) return;
+
+            const wasActive = activeOverlay !== null && activeTitle === titleNode;
+            dismissEmbed();
+            if (wasActive) return;
+
+            titleNode.setAttribute("visibility", "hidden");
+            if (detailNode) detailNode.setAttribute("visibility", "hidden");
+            activeTitle = titleNode;
+            activeDetail = detailNode;
+
+            const svgRect = svg.getBoundingClientRect();
+            const vb = svg.viewBox.baseVal;
+            const scaleX = svgRect.width / vb.width;
+            const scaleY = svgRect.height / vb.height;
+
+            const overlay = document.createElement("div");
+            overlay.setAttribute("data-spotify-overlay", "");
+            overlay.style.cssText = `
+              position: fixed;
+              left: ${svgRect.left + x * scaleX}px;
+              top: ${svgRect.top + embedAnchorY * scaleY - 2}px;
+              width: ${layout.width * scaleX}px;
+              height: ${embedHeight}px;
+              z-index: 10;
+              pointer-events: auto;
+            `;
+
+            const iframe = document.createElement("iframe");
+            iframe.src = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0`;
+            iframe.allow = "autoplay; clipboard-write; encrypted-media";
+            iframe.style.cssText = `
+              border: none;
+              width: 100%;
+              height: 100%;
+              border-radius: 8px;
+            `;
+
+            overlay.append(iframe);
+            document.body.append(overlay);
+            activeOverlay = overlay;
+
+            outsideListener = (ev: MouseEvent) => {
+              if (overlay.contains(ev.target as Node)) return;
+              dismissEmbed();
+            };
+            requestAnimationFrame(() => {
+              document.addEventListener("pointerdown", outsideListener!, true);
+            });
+          });
+        }
       }
 
       if (item.image) {
@@ -1364,6 +1461,7 @@ function render(
   svg.setAttribute("viewBox", `0 0 ${frame.viewport.width} ${frame.viewport.height}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.replaceChildren();
+  document.querySelectorAll("[data-spotify-overlay]").forEach((el) => el.remove());
 
   const defs = createSvgElement("defs", {});
   const thinkingBlur = createSvgElement("filter", {
