@@ -82,9 +82,14 @@ type DerivedGeometry = {
   cursorPos: Point;
 };
 
+type PageKey = "home" | "work" | "talk";
 type HeaderBoxKey = "name" | "work" | "talk";
+type AppState = {
+  page: PageKey;
+};
 
 type HeaderBoxRefs = {
+  key: HeaderBoxKey;
   box: Rect;
   fill: SVGRectElement;
   clipRect: SVGRectElement;
@@ -134,6 +139,24 @@ type AnimationOptions = {
   easing?: (t: number) => number;
   onUpdate: (value: number, progress: number) => void;
   onComplete?: () => void;
+};
+
+type InfoLayout = {
+  x: number;
+  y: number;
+  width: number;
+};
+
+type TextStyle = {
+  fill: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number | string;
+  letterSpacing?: number;
+  opacity?: number;
+  dominantBaseline?: string;
+  textAnchor?: string;
+  fontStyle?: string;
 };
 
 const SPEC: CompositionSpec = {
@@ -191,6 +214,10 @@ const SPEC: CompositionSpec = {
 };
 
 const svgNs = "http://www.w3.org/2000/svg";
+const SANS_FONT = "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif";
+const INITIAL_STATE: AppState = {
+  page: "home",
+};
 
 function toPx(value: number): number {
   return Math.round(value);
@@ -537,7 +564,233 @@ function createSvgElement<T extends keyof SVGElementTagNameMap>(
   return node;
 }
 
-function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
+function headerKeyToPage(key: HeaderBoxKey): PageKey {
+  if (key === "name") {
+    return "home";
+  }
+
+  return key;
+}
+
+function appendText(
+  parent: SVGElement,
+  x: number,
+  y: number,
+  text: string,
+  style: TextStyle,
+): SVGTextElement {
+  const node = createSvgElement("text", {
+    x,
+    y,
+    fill: style.fill,
+    "font-family": style.fontFamily,
+    "font-size": style.fontSize,
+    "font-weight": style.fontWeight,
+    "dominant-baseline": style.dominantBaseline ?? "hanging",
+    "text-anchor": style.textAnchor ?? "start",
+    "font-style": style.fontStyle ?? "normal",
+    stroke: "none",
+  });
+
+  if (style.letterSpacing !== undefined) {
+    node.setAttribute("letter-spacing", String(style.letterSpacing));
+  }
+
+  if (style.opacity !== undefined) {
+    node.setAttribute("opacity", String(style.opacity));
+  }
+
+  node.textContent = text;
+  parent.append(node);
+  return node;
+}
+
+function appendTextLines(
+  parent: SVGElement,
+  x: number,
+  startY: number,
+  lines: readonly string[],
+  style: TextStyle,
+  lineHeight: number,
+): number {
+  let cursorY = startY;
+
+  lines.forEach((line) => {
+    if (line.length === 0) {
+      cursorY += lineHeight;
+      return;
+    }
+
+    appendText(parent, x, cursorY, line, style);
+    cursorY += lineHeight;
+  });
+
+  return cursorY;
+}
+
+function deriveInfoLayout(
+  frame: LayoutFrame,
+  bounds: Bounds,
+  geometry: DerivedGeometry,
+  headerHeight: number,
+): InfoLayout {
+  const edgePad = clamp(frame.viewport.width * 0.045, 24, 72);
+  const gap = clamp(frame.viewport.width * 0.024, 18, 42);
+  const preferredWidth = clamp(frame.viewport.width * 0.32, 320, 480);
+  const leftClusterRight = bounds.maxX * frame.scale;
+  const sideX = leftClusterRight + gap;
+  const sideWidth = frame.viewport.width - sideX - edgePad;
+  const sideFits = sideWidth >= 300;
+
+  if (sideFits) {
+    return {
+      x: sideX,
+      y: headerHeight + clamp(frame.viewport.height * 0.065, 48, 88),
+      width: Math.min(sideWidth, preferredWidth),
+    };
+  }
+
+  return {
+    x: edgePad,
+    y: geometry.branchEnd.y * frame.scale + clamp(frame.viewport.height * 0.05, 28, 54),
+    width: frame.viewport.width - edgePad * 2,
+  };
+}
+
+function renderManifestoPreview(
+  parent: SVGElement,
+  layout: InfoLayout,
+  state: AppState,
+  spec: CompositionSpec,
+): void {
+  const muted = mixColor(spec.colors.line, spec.colors.title, 0.58);
+  const body = spec.colors.title;
+  const x = layout.x;
+  const contentTop = layout.y;
+  const pageY = contentTop;
+  const heroSize = clamp(layout.width * 0.085, 26, 42);
+  const bodySize = clamp(layout.width * 0.049, 18, 24);
+  const sectionLabelSize = 12;
+  const valueSize = clamp(layout.width * 0.046, 18, 23);
+
+  appendText(parent, x, pageY, state.page.toUpperCase(), {
+    fill: muted,
+    fontFamily: SANS_FONT,
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: 2.4,
+  });
+
+  let cursorY = pageY + 34;
+
+  if (state.page === "home") {
+    cursorY = appendTextLines(
+      parent,
+      x,
+      cursorY,
+      ["Hello.", "I'm Ethan."],
+      {
+        fill: body,
+        fontFamily: SANS_FONT,
+        fontSize: heroSize,
+        fontWeight: 700,
+      },
+      heroSize * 1.04,
+    );
+    cursorY += 22;
+    appendTextLines(
+      parent,
+      x,
+      cursorY,
+      [
+        "I build and write.",
+        "I'm at Cornell right now.",
+        "I think about products",
+        "and institutional design.",
+      ],
+      {
+        fill: body,
+        fontFamily: SANS_FONT,
+        fontSize: bodySize,
+        fontWeight: 400,
+      },
+      bodySize * 1.46,
+    );
+    return;
+  }
+
+  if (state.page === "work") {
+    cursorY = appendTextLines(
+      parent,
+      x,
+      cursorY,
+      ["Products I've built,", "with detail."],
+      {
+        fill: body,
+        fontFamily: SANS_FONT,
+        fontSize: heroSize * 0.82,
+        fontWeight: 700,
+      },
+      heroSize * 0.98,
+    );
+    cursorY += 16;
+    appendText(parent, x, cursorY, "Placeholder for now.", {
+      fill: muted,
+      fontFamily: SANS_FONT,
+      fontSize: bodySize,
+      fontWeight: 400,
+    });
+    return;
+  }
+
+  const sections: Array<{ label: string; values: string[] }> = [
+    {
+      label: "Favorite artist",
+      values: ["Theo van Doesburg"],
+    },
+    {
+      label: "Favorite songs",
+      values: ["Tesselation (Mild High Club)", "Juna (Clairo)", "Schehezerade II"],
+    },
+    {
+      label: "Favorite books",
+      values: [
+        "The Road to Serfdom",
+        "The Calculus of Consent",
+        "Team of Rivals",
+      ],
+    },
+  ];
+
+  sections.forEach(({ label, values }, index) => {
+    appendText(parent, x, cursorY, label.toUpperCase(), {
+      fill: muted,
+      fontFamily: SANS_FONT,
+      fontSize: sectionLabelSize,
+      fontWeight: 700,
+      letterSpacing: 1.8,
+    });
+    cursorY += 22;
+    cursorY = appendTextLines(
+      parent,
+      x,
+      cursorY,
+      values,
+      {
+        fill: body,
+        fontFamily: SANS_FONT,
+        fontSize: valueSize,
+        fontWeight: 400,
+      },
+      valueSize * 1.42,
+    );
+    if (index < sections.length - 1) {
+      cursorY += 18;
+    }
+  });
+}
+
+function render(spec: CompositionSpec, svg: SVGSVGElement, state: AppState): InteractionRefs {
   const geometry = deriveGeometry(spec);
   const bounds = deriveContentBounds(geometry);
   validateConstraints(spec, geometry, bounds);
@@ -581,7 +834,9 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
   const headerLabelSize = spec.text.titleSize * frame.scale;
   const headerFill = spec.colors.title;
   const nameIdleFill = mixColor(spec.colors.headerLabel, spec.colors.title, 0.25);
+  const activeNameFill = spec.colors.title;
   const boxIdleFill = mixColor(spec.colors.headerLabel, spec.colors.title, 0.1);
+  const activeBoxFill = mixColor(spec.colors.headerLabel, spec.colors.title, 0.62);
 
   const headerBoxRefs: HeaderBoxRefs[] = [];
   const headerBoxes = createSvgElement("g", {});
@@ -600,7 +855,7 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
       box: { x: 0, y: 0, width: headerWidth, height: headerHeight },
       labelX: geometry.titlePos.x * frame.scale,
       labelY: headerLabelY,
-      baseFill: nameIdleFill,
+      baseFill: state.page === "home" ? activeNameFill : nameIdleFill,
     },
     {
       key: "work",
@@ -613,7 +868,7 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
       },
       labelX: frame.viewport.width - headerSectionWidth * 2 + headerLabelXOffset,
       labelY: headerLabelY,
-      baseFill: boxIdleFill,
+      baseFill: state.page === "work" ? activeBoxFill : boxIdleFill,
     },
     {
       key: "talk",
@@ -626,7 +881,7 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
       },
       labelX: frame.viewport.width - headerSectionWidth + headerLabelXOffset,
       labelY: headerLabelY,
-      baseFill: boxIdleFill,
+      baseFill: state.page === "talk" ? activeBoxFill : boxIdleFill,
     },
   ];
 
@@ -700,10 +955,12 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
       "fill-opacity": 0,
       "pointer-events": "all",
     });
+    hit.style.cursor = "pointer";
 
     boxGroup.append(fill, baseText, revealText, border, hit);
     headerBoxes.append(boxGroup);
     headerBoxRefs.push({
+      key,
       box,
       fill,
       clipRect,
@@ -746,6 +1003,7 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
   const contentGroup = createSvgElement("g", {
     transform: `scale(${frame.scale})`,
   });
+  const infoGroup = createSvgElement("g", {});
 
   const structureGroup = createSvgElement("g", {
     stroke: spec.colors.line,
@@ -927,7 +1185,10 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
   terminalGroup.append(panel, cursor, terminalHit);
 
   contentGroup.append(structureGroup, boatGroup, diamondGroup, signalGroup, terminalGroup);
-  svg.append(defs, background, headerBoxes, headerOutline, contentGroup);
+  const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeight);
+  renderManifestoPreview(infoGroup, infoLayout, state, spec);
+
+  svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
 
   return {
     headerBoxes: headerBoxRefs,
@@ -963,6 +1224,7 @@ function render(spec: CompositionSpec, svg: SVGSVGElement): InteractionRefs {
 function setupHeaderBoxInteraction(
   refs: HeaderBoxRefs,
   reducedMotion: boolean,
+  onActivate: () => void,
 ): () => void {
   let progress = 0;
   let moveCancel: (() => void) | null = null;
@@ -1036,8 +1298,13 @@ function setupHeaderBoxInteraction(
     refs.border.setAttribute("opacity", "0");
   };
 
+  const handleClick = (): void => {
+    onActivate();
+  };
+
   refs.hit.addEventListener("pointerenter", handleEnter);
   refs.hit.addEventListener("pointerleave", handleLeave);
+  refs.hit.addEventListener("click", handleClick);
   apply();
 
   return () => {
@@ -1045,6 +1312,7 @@ function setupHeaderBoxInteraction(
     pulseCancel?.();
     refs.hit.removeEventListener("pointerenter", handleEnter);
     refs.hit.removeEventListener("pointerleave", handleLeave);
+    refs.hit.removeEventListener("click", handleClick);
   };
 }
 
@@ -1415,9 +1683,14 @@ function setupInteractions(
   refs: InteractionRefs,
   spec: CompositionSpec,
   reducedMotion: boolean,
+  setState: (patch: Partial<AppState>) => void,
 ): () => void {
   const cleanups = [
-    ...refs.headerBoxes.map((box) => setupHeaderBoxInteraction(box, reducedMotion)),
+    ...refs.headerBoxes.map((box) =>
+      setupHeaderBoxInteraction(box, reducedMotion, () => {
+        setState({ page: headerKeyToPage(box.key) });
+      }),
+    ),
     setupBoatInteraction(refs.boat, reducedMotion),
     setupDiamondInteraction(refs.diamond, reducedMotion),
     setupSignalInteraction(refs.signal, spec, reducedMotion),
@@ -1441,13 +1714,27 @@ function mount(spec: CompositionSpec): void {
   const reducedMotionQuery = host.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
   let frameId: number | null = null;
   let cleanupInteractions: (() => void) | null = null;
+  let state: AppState = { ...INITIAL_STATE };
+
+  const setState = (patch: Partial<AppState>): void => {
+    const nextState = { ...state, ...patch };
+    const changed = nextState.page !== state.page;
+
+    if (!changed) {
+      return;
+    }
+
+    state = nextState;
+    scheduleRender();
+  };
 
   const commitRender = (): void => {
     cleanupInteractions?.();
     cleanupInteractions = setupInteractions(
-      render(spec, svg),
+      render(spec, svg, state),
       spec,
       Boolean(reducedMotionQuery?.matches),
+      setState,
     );
   };
 
