@@ -15,6 +15,20 @@ type LayoutFrame = {
   scale: number;
 };
 
+type TypeRole = {
+  ratio: number;
+  min: number;
+  max: number;
+  weight: number | string;
+  lineHeight: number;
+};
+
+type SpacingToken = {
+  ratio: number;
+  min: number;
+  max: number;
+};
+
 type CompositionSpec = {
   reference: Size;
   layout: {
@@ -52,6 +66,21 @@ type CompositionSpec = {
     thinkingOffsetYFromCircleCenter: number;
     cursorOffsetXFromPanelLeft: number;
     cursorOffsetYFromPanelTop: number;
+  };
+  typography: {
+    hero: TypeRole;
+    pageHeading: TypeRole;
+    itemTitle: TypeRole;
+    body: TypeRole;
+    detail: TypeRole;
+  };
+  spacing: {
+    afterHero: number;
+    afterPageHeading: SpacingToken;
+    titleToDetail: SpacingToken;
+    sectionGap: SpacingToken;
+    afterBodyToLinks: SpacingToken;
+    dividerWidthRatio: number;
   };
   colors: {
     background: string;
@@ -152,6 +181,29 @@ type InfoLayout = {
   width: number;
 };
 
+type ResolvedType = {
+  size: number;
+  weight: number | string;
+  lineHeight: number;
+};
+
+type ContentTypography = {
+  hero: ResolvedType;
+  pageHeading: ResolvedType;
+  itemTitle: ResolvedType;
+  body: ResolvedType;
+  detail: ResolvedType;
+  colors: { body: string; detail: string; divider: string };
+  gap: {
+    afterHero: number;
+    afterPageHeading: number;
+    titleToDetail: number;
+    sectionGap: number;
+    afterBodyToLinks: number;
+  };
+  dividerWidth: number;
+};
+
 type TextStyle = {
   fill: string;
   fontFamily: string;
@@ -193,7 +245,7 @@ const SPEC: CompositionSpec = {
   text: {
     title: "ETHAN YANG",
     work: "WORK",
-    talk: "TALK",
+    talk: "MORE",
     thinking: "thinking?",
     cursor: "...|",
     titleSize: 70,
@@ -204,6 +256,21 @@ const SPEC: CompositionSpec = {
     thinkingOffsetYFromCircleCenter: 50,
     cursorOffsetXFromPanelLeft: 15,
     cursorOffsetYFromPanelTop: 18,
+  },
+  typography: {
+    hero: { ratio: 0.08, min: 30, max: 40, weight: 700, lineHeight: 1.04 },
+    pageHeading: { ratio: 0.066, min: 25, max: 33, weight: 400, lineHeight: 1.02 },
+    itemTitle: { ratio: 0.062, min: 24, max: 28, weight: 700, lineHeight: 1.02 },
+    body: { ratio: 0.05, min: 20, max: 22, weight: 400, lineHeight: 1.34 },
+    detail: { ratio: 0.041, min: 16.5, max: 18.5, weight: 400, lineHeight: 1.3 },
+  },
+  spacing: {
+    afterHero: 22,
+    afterPageHeading: { ratio: 1.1, min: 22, max: 28 },
+    titleToDetail: { ratio: 0.58, min: 10, max: 12 },
+    sectionGap: { ratio: 1.2, min: 18, max: 22 },
+    afterBodyToLinks: { ratio: 1.05, min: 18, max: 24 },
+    dividerWidthRatio: 0.35,
   },
   colors: {
     background: "#FAF7F3",
@@ -907,11 +974,57 @@ function appendContactLinks(
   }
 }
 
+function resolveTypeRole(role: TypeRole, width: number): ResolvedType {
+  return {
+    size: clamp(width * role.ratio, role.min, role.max),
+    weight: role.weight,
+    lineHeight: role.lineHeight,
+  };
+}
+
+function resolveSpacing(token: SpacingToken, baseSize: number): number {
+  return clamp(baseSize * token.ratio, token.min, token.max);
+}
+
+function deriveContentTypography(
+  width: number,
+  spec: CompositionSpec,
+): ContentTypography {
+  const hero = resolveTypeRole(spec.typography.hero, width);
+  const pageHeading = resolveTypeRole(spec.typography.pageHeading, width);
+  const itemTitle = resolveTypeRole(spec.typography.itemTitle, width);
+  const body = resolveTypeRole(spec.typography.body, width);
+  const detail = resolveTypeRole(spec.typography.detail, width);
+
+  return {
+    hero,
+    pageHeading,
+    itemTitle,
+    body,
+    detail,
+    colors: {
+      body: spec.colors.title,
+      detail: mixColor(spec.colors.background, spec.colors.title, 0.55),
+      divider: mixColor(spec.colors.background, spec.colors.title, 0.18),
+    },
+    gap: {
+      afterHero: spec.spacing.afterHero,
+      afterPageHeading: resolveSpacing(spec.spacing.afterPageHeading, body.size),
+      titleToDetail: resolveSpacing(spec.spacing.titleToDetail, detail.size),
+      sectionGap: resolveSpacing(spec.spacing.sectionGap, detail.size),
+      afterBodyToLinks: resolveSpacing(spec.spacing.afterBodyToLinks, body.size),
+    },
+    dividerWidth: width * spec.spacing.dividerWidthRatio,
+  };
+}
+
 function deriveInfoLayout(
   frame: LayoutFrame,
   bounds: Bounds,
   geometry: DerivedGeometry,
   headerHeight: number,
+  spec: CompositionSpec,
+  page: PageKey,
 ): InfoLayout {
   const edgePad = clamp(frame.viewport.width * 0.045, 24, 72);
   const gap = clamp(frame.viewport.width * 0.046, 52, 76);
@@ -923,11 +1036,29 @@ function deriveInfoLayout(
 
   if (sideFits) {
     const w = Math.min(sideWidth, preferredWidth);
-    const heroSize = clamp(w * 0.08, 30, 40);
-    const bodySize = clamp(w * 0.05, 20, 22);
-    const offsetToBodyMid = heroSize * 1.04 + 22 + bodySize * 1.34;
+    const typo = deriveContentTypography(w, spec);
     const diamondCenterPx = geometry.diamondCenter.y * frame.scale;
-    const idealY = diamondCenterPx - offsetToBodyMid;
+    const ph = typo.pageHeading.size * typo.pageHeading.lineHeight;
+    const it = typo.itemTitle.size * typo.itemTitle.lineHeight;
+    const dl = typo.detail.size * typo.detail.lineHeight;
+    const apH = typo.gap.afterPageHeading;
+    const ttd = typo.gap.titleToDetail;
+    const sg = typo.gap.sectionGap;
+    let anchorOffset: number;
+
+    if (page === "home") {
+      anchorOffset =
+        typo.hero.size * typo.hero.lineHeight +
+        typo.gap.afterHero +
+        typo.body.size * typo.body.lineHeight;
+    } else if (page === "work") {
+      anchorOffset = ph + apH + it + ttd + dl + sg;
+    } else {
+      anchorOffset = ph + apH + (it + ttd + dl) + sg;
+    }
+
+    const idealY = diamondCenterPx - anchorOffset;
+
     const minY = headerHeight + clamp(frame.viewport.height * 0.04, 32, 48);
 
     return {
@@ -951,18 +1082,9 @@ function renderManifestoPreview(
   spec: CompositionSpec,
   onEmailCopy: () => void,
 ): void {
-  const pageLabel = mixColor(spec.colors.line, spec.colors.title, 0.58);
-  const sectionLabel = mixColor(spec.colors.background, spec.colors.title, 0.44);
-  const body = spec.colors.title;
+  const t = deriveContentTypography(layout.width, spec);
   const x = layout.x;
-  const contentTop = layout.y;
-  const pageY = contentTop;
-  const heroSize = clamp(layout.width * 0.08, 30, 40);
-  const bodySize = clamp(layout.width * 0.05, 20, 22);
-  const sectionLabelSize = clamp(layout.width * 0.025, 10, 11.5);
-  const valueSize = clamp(layout.width * 0.05, 20, 22.5);
-
-  let cursorY = pageY;
+  let cursorY = layout.y;
 
   if (state.page === "home") {
     cursorY = appendTextLines(
@@ -971,14 +1093,14 @@ function renderManifestoPreview(
       cursorY,
       ["Hello. I'm Ethan."],
       {
-        fill: body,
+        fill: t.colors.body,
         fontFamily: SANS_FONT,
-        fontSize: heroSize,
-        fontWeight: 700,
+        fontSize: t.hero.size,
+        fontWeight: t.hero.weight,
       },
-      heroSize * 1.04,
+      t.hero.size * t.hero.lineHeight,
     );
-    cursorY += 22;
+    cursorY += t.gap.afterHero;
     cursorY = appendTextLines(
       parent,
       x,
@@ -988,14 +1110,14 @@ function renderManifestoPreview(
         "Interviewed at YC, published in The Concord Review.",
       ],
       {
-        fill: body,
+        fill: t.colors.body,
         fontFamily: SANS_FONT,
-        fontSize: bodySize,
-        fontWeight: 400,
+        fontSize: t.body.size,
+        fontWeight: t.body.weight,
       },
-      bodySize * 1.34,
+      t.body.size * t.body.lineHeight,
     );
-    cursorY += clamp(bodySize * 1.05, 18, 24);
+    cursorY += t.gap.afterBodyToLinks;
     appendContactLinks(parent, x, cursorY, layout.width, spec, state.emailFeedback, onEmailCopy);
     return;
   }
@@ -1014,10 +1136,6 @@ function renderManifestoPreview(
         details: ["Mapping NYC's participatory budget."],
       },
     ];
-    const projectNameSize = clamp(layout.width * 0.062, 24, 28);
-    const projectBodySize = clamp(layout.width * 0.041, 16.5, 18.5);
-    const detailColor = mixColor(spec.colors.background, spec.colors.title, 0.55);
-    const dividerColor = mixColor(spec.colors.background, spec.colors.title, 0.18);
 
     cursorY = appendTextLines(
       parent,
@@ -1025,14 +1143,14 @@ function renderManifestoPreview(
       cursorY,
       ["Products I've built."],
       {
-        fill: body,
+        fill: t.colors.body,
         fontFamily: SANS_FONT,
-        fontSize: heroSize * 0.82,
-        fontWeight: 400,
+        fontSize: t.pageHeading.size,
+        fontWeight: t.pageHeading.weight,
       },
-      heroSize * 1.02,
+      t.pageHeading.size * t.pageHeading.lineHeight,
     );
-    cursorY += clamp(bodySize * 1.1, 22, 28);
+    cursorY += t.gap.afterPageHeading;
 
     projects.forEach((project, index) => {
       cursorY = appendTextLines(
@@ -1041,94 +1159,191 @@ function renderManifestoPreview(
         cursorY,
         project.nameLines,
         {
-          fill: body,
+          fill: t.colors.body,
           fontFamily: SANS_FONT,
-          fontSize: projectNameSize,
-          fontWeight: 700,
+          fontSize: t.itemTitle.size,
+          fontWeight: t.itemTitle.weight,
         },
-        projectNameSize * 1.02,
+        t.itemTitle.size * t.itemTitle.lineHeight,
       );
-      cursorY += clamp(projectBodySize * 0.58, 10, 12);
+      cursorY += t.gap.titleToDetail;
       cursorY = appendTextLines(
         parent,
         x,
         cursorY,
         project.details,
         {
-          fill: detailColor,
+          fill: t.colors.body,
           fontFamily: SANS_FONT,
-          fontSize: projectBodySize,
-          fontWeight: 400,
+          fontSize: t.detail.size,
+          fontWeight: t.detail.weight,
         },
-        projectBodySize * 1.3,
+        t.detail.size * t.detail.lineHeight,
       );
 
       if (index < projects.length - 1) {
-        cursorY += clamp(projectBodySize * 1.2, 18, 22);
+        cursorY += t.gap.sectionGap;
         const lineY = cursorY;
         parent.append(
           createSvgElement("line", {
             x1: x,
             y1: lineY,
-            x2: x + layout.width * 0.35,
+            x2: x + t.dividerWidth,
             y2: lineY,
-            stroke: dividerColor,
+            stroke: t.colors.divider,
             "stroke-width": 1,
           }),
         );
-        cursorY += clamp(projectBodySize * 1.2, 18, 22);
+        cursorY += t.gap.sectionGap;
       }
     });
     return;
   }
 
-  const sections: Array<{ label: string; values: string[] }> = [
+  cursorY = appendTextLines(
+    parent,
+    x,
+    cursorY,
+    ["A few things I like."],
+    {
+      fill: t.colors.body,
+      fontFamily: SANS_FONT,
+      fontSize: t.pageHeading.size,
+      fontWeight: t.pageHeading.weight,
+    },
+    t.pageHeading.size * t.pageHeading.lineHeight,
+  );
+  cursorY += t.gap.afterPageHeading;
+
+  const sections: Array<{
+    label: string;
+    items: Array<{ title: string; detail?: string; image?: string }>;
+  }> = [
     {
       label: "Favorite artist",
-      values: ["Theo van Doesburg"],
+      items: [{ title: "Theo van Doesburg", image: "composition.png" }],
     },
     {
       label: "Favorite songs",
-      values: [
-        "Tesselation (Mild High Club)",
-        "Juna (Clairo)",
-        "Scheherazade II (Rimsky-Korsakov)",
+      items: [
+        { title: "Tesselation", detail: "Mild High Club" },
+        { title: "Juna", detail: "Clairo" },
+        { title: "Scheherazade II", detail: "Rimsky-Korsakov" },
       ],
     },
     {
       label: "Favorite books",
-      values: [
-        "The Road to Serfdom",
-        "The Calculus of Consent",
-        "Team of Rivals",
+      items: [
+        { title: "The Road to Serfdom" },
+        { title: "The Calculus of Consent" },
+        { title: "Team of Rivals" },
       ],
     },
   ];
 
-  sections.forEach(({ label, values }, index) => {
-    appendText(parent, x, cursorY, label.toUpperCase(), {
-      fill: sectionLabel,
-      fontFamily: SANS_FONT,
-      fontSize: sectionLabelSize,
-      fontWeight: 500,
-      letterSpacing: 2.6,
-    });
-    cursorY += clamp(valueSize * 0.78, 15, 18);
+  sections.forEach(({ label, items }, index) => {
     cursorY = appendTextLines(
       parent,
       x,
       cursorY,
-      values,
+      [label],
       {
-        fill: body,
+        fill: t.colors.body,
         fontFamily: SANS_FONT,
-        fontSize: valueSize,
-        fontWeight: 400,
+        fontSize: t.itemTitle.size,
+        fontWeight: t.itemTitle.weight,
       },
-      valueSize * 1.22,
+      t.itemTitle.size * t.itemTitle.lineHeight,
     );
+    cursorY += t.gap.titleToDetail;
+
+    const detailItems = items.filter((item) => item.detail !== undefined);
+    const detailColumnX =
+      detailItems.length > 0
+        ? x +
+          Math.max(...detailItems.map((item) => estimateTextWidth(item.title, t.detail.size))) +
+          t.detail.size * 0.6
+        : x;
+
+    items.forEach((item) => {
+      if (item.detail) {
+        appendText(parent, x, cursorY, item.title, {
+          fill: t.colors.body,
+          fontFamily: SANS_FONT,
+          fontSize: t.detail.size,
+          fontWeight: t.detail.weight,
+        });
+        appendText(parent, detailColumnX, cursorY, item.detail, {
+          fill: t.colors.detail,
+          fontFamily: SANS_FONT,
+          fontSize: t.detail.size,
+          fontWeight: t.detail.weight,
+          fontStyle: "italic",
+        });
+      } else {
+        appendText(parent, x, cursorY, item.title, {
+          fill: t.colors.body,
+          fontFamily: SANS_FONT,
+          fontSize: t.detail.size,
+          fontWeight: t.detail.weight,
+        });
+      }
+
+      if (item.image) {
+        const imgSize = clamp(layout.width * 0.42, 130, 180);
+        const imgGap = clamp(layout.width * 0.08, 24, 40);
+        const imgX = x + layout.width + imgGap;
+        const imgY = cursorY - imgSize * 0.4;
+
+        const preview = createSvgElement("image", {
+          href: item.image,
+          x: imgX,
+          y: imgY,
+          width: imgSize,
+          height: imgSize,
+          opacity: 0,
+          preserveAspectRatio: "xMidYMid slice",
+        });
+        preview.style.transition = "opacity 0.25s ease";
+        preview.style.pointerEvents = "none";
+        parent.append(preview);
+
+        const hitPad = 4;
+        const hit = createSvgElement("rect", {
+          x: x - hitPad,
+          y: cursorY - hitPad,
+          width: estimateTextWidth(item.title, t.detail.size) + hitPad * 2,
+          height: t.detail.size * t.detail.lineHeight + hitPad * 2,
+          fill: "transparent",
+          "pointer-events": "all",
+        });
+        hit.style.cursor = "pointer";
+        hit.addEventListener("pointerenter", () => {
+          preview.setAttribute("opacity", "1");
+        });
+        hit.addEventListener("pointerleave", () => {
+          preview.setAttribute("opacity", "0");
+        });
+        parent.append(hit);
+      }
+
+      cursorY += t.detail.size * t.detail.lineHeight;
+    });
+
     if (index < sections.length - 1) {
-      cursorY += clamp(valueSize * (1.1 + values.length * 0.15), 26, 34);
+      cursorY += t.gap.sectionGap;
+      const lineY = cursorY;
+      parent.append(
+        createSvgElement("line", {
+          x1: x,
+          y1: lineY,
+          x2: x + t.dividerWidth,
+          y2: lineY,
+          stroke: t.colors.divider,
+          "stroke-width": 1,
+        }),
+      );
+      cursorY += t.gap.sectionGap;
     }
   });
 }
@@ -1533,7 +1748,7 @@ function render(
   terminalGroup.append(panel, cursor, terminalHit);
 
   contentGroup.append(structureGroup, boatGroup, diamondGroup, signalGroup, terminalGroup);
-  const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeight);
+  const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeight, spec, state.page);
   renderManifestoPreview(infoGroup, infoLayout, state, spec, onEmailCopy);
 
   svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
