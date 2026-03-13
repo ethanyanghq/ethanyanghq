@@ -966,7 +966,7 @@ function renderManifestoPreview(
       parent,
       x,
       cursorY,
-      ["Hello.", "I'm Ethan."],
+      ["Hello. I'm Ethan."],
       {
         fill: body,
         fontFamily: SANS_FONT,
@@ -983,6 +983,7 @@ function renderManifestoPreview(
       [
         "I build and write. I'm at Cornell right now.",
         "I think about products and institutional design.",
+        "Interviewed at YC, published in The Concord Review.",
       ],
       {
         fill: body,
@@ -1013,6 +1014,8 @@ function renderManifestoPreview(
     ];
     const projectNameSize = clamp(layout.width * 0.062, 24, 28);
     const projectBodySize = clamp(layout.width * 0.041, 16.5, 18.5);
+    const detailColor = mixColor(spec.colors.background, spec.colors.title, 0.55);
+    const dividerColor = mixColor(spec.colors.background, spec.colors.title, 0.18);
 
     cursorY = appendTextLines(
       parent,
@@ -1023,11 +1026,11 @@ function renderManifestoPreview(
         fill: body,
         fontFamily: SANS_FONT,
         fontSize: heroSize * 0.82,
-        fontWeight: 700,
+        fontWeight: 400,
       },
       heroSize * 1.02,
     );
-    cursorY += clamp(bodySize * 0.9, 18, 22);
+    cursorY += clamp(bodySize * 1.1, 22, 28);
 
     projects.forEach((project, index) => {
       cursorY = appendTextLines(
@@ -1050,7 +1053,7 @@ function renderManifestoPreview(
         cursorY,
         project.details,
         {
-          fill: body,
+          fill: detailColor,
           fontFamily: SANS_FONT,
           fontSize: projectBodySize,
           fontWeight: 400,
@@ -1059,7 +1062,19 @@ function renderManifestoPreview(
       );
 
       if (index < projects.length - 1) {
-        cursorY += clamp(projectBodySize * 2.2, 32, 38);
+        cursorY += clamp(projectBodySize * 1.2, 18, 22);
+        const lineY = cursorY;
+        parent.append(
+          createSvgElement("line", {
+            x1: x,
+            y1: lineY,
+            x2: x + layout.width * 0.35,
+            y2: lineY,
+            stroke: dividerColor,
+            "stroke-width": 1,
+          }),
+        );
+        cursorY += clamp(projectBodySize * 1.2, 18, 22);
       }
     });
     return;
