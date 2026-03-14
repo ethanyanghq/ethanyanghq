@@ -179,6 +179,7 @@ type InfoLayout = {
   x: number;
   y: number;
   width: number;
+  availableWidth: number;
   diamondCenterY: number;
   mobile: boolean;
 };
@@ -1086,6 +1087,7 @@ function deriveInfoLayout(
       x: sideX,
       y: Math.max(minY, idealY),
       width: w,
+      availableWidth: sideWidth,
       diamondCenterY: diamondCenterPx,
       mobile: false,
     };
@@ -1099,6 +1101,7 @@ function deriveInfoLayout(
     x: mobileX,
     y: mobileY,
     width: mobileWidth,
+    availableWidth: mobileWidth,
     diamondCenterY: geometry.diamondCenter.y * frame.scale,
     mobile: true,
   };
@@ -1169,91 +1172,133 @@ function renderManifestoPreview(
       },
     ];
 
-    cursorY = appendTextLines(
-      parent,
-      x,
-      cursorY,
-      ["Things I've worked on."],
+    const publications: Array<{
+      nameLines: string[];
+      details: string[];
+      link?: string;
+    }> = [
       {
-        fill: t.colors.body,
-        fontFamily: SANS_FONT,
-        fontSize: t.pageHeading.size,
-        fontWeight: t.pageHeading.weight,
+        nameLines: ["Lessons from Watergate"],
+        details: ["The media's role in scandal and accountability.", "The Concord Review, Spring '24."],
+        link: "./Lessons from Watergate.pdf",
       },
-      t.pageHeading.size * t.pageHeading.lineHeight,
-    );
-    cursorY += t.gap.afterPageHeading;
+      {
+        nameLines: ["Canada's Road to Serfdom"],
+        details: ["Hayek's warnings applied to Canadian economic policy.", "Canadian Student Review, Fall '23."],
+        link: "./Canada's Road to Serfdom.pdf",
+      },
+    ];
 
-    projects.forEach((project, index) => {
-      if (project.link) {
-        const link = createSvgElement("a", {
-          href: project.link,
-          target: "_blank",
-          rel: "noreferrer noopener",
-        });
-        link.style.cursor = "pointer";
-        const linkGroup = createSvgElement("g", {});
-        cursorY = appendTextLines(
-          linkGroup,
-          x,
-          cursorY,
-          project.nameLines,
-          {
-            fill: t.colors.body,
-            fontFamily: SANS_FONT,
-            fontSize: t.itemTitle.size,
-            fontWeight: t.itemTitle.weight,
-          },
-          t.itemTitle.size * t.itemTitle.lineHeight,
-        );
-        link.append(linkGroup);
-        parent.append(link);
-      } else {
-        cursorY = appendTextLines(
-          parent,
-          x,
-          cursorY,
-          project.nameLines,
-          {
-            fill: t.colors.body,
-            fontFamily: SANS_FONT,
-            fontSize: t.itemTitle.size,
-            fontWeight: t.itemTitle.weight,
-          },
-          t.itemTitle.size * t.itemTitle.lineHeight,
-        );
-      }
-      cursorY += t.gap.titleToDetail;
-      cursorY = appendTextLines(
+    const columnGap = 40;
+    const twoColFits = !layout.mobile && layout.availableWidth >= layout.width + columnGap + 280;
+    const col2Width = twoColFits ? Math.min(layout.availableWidth - layout.width - columnGap, layout.width) : layout.width;
+    const col2X = twoColFits ? x + layout.width + columnGap : x;
+    const t2 = twoColFits ? deriveContentTypography(col2Width, spec) : t;
+
+    const renderColumn = (
+      items: Array<{ nameLines: string[]; details: string[]; link?: string }>,
+      heading: string,
+      colX: number,
+      startY: number,
+      typo: ReturnType<typeof deriveContentTypography>,
+    ): number => {
+      let cy = startY;
+      cy = appendTextLines(
         parent,
-        x,
-        cursorY,
-        project.details,
+        colX,
+        cy,
+        [heading],
         {
-          fill: t.colors.body,
+          fill: typo.colors.body,
           fontFamily: SANS_FONT,
-          fontSize: t.detail.size,
-          fontWeight: t.detail.weight,
+          fontSize: typo.pageHeading.size,
+          fontWeight: typo.pageHeading.weight,
         },
-        t.detail.size * t.detail.lineHeight,
+        typo.pageHeading.size * typo.pageHeading.lineHeight,
       );
+      cy += typo.gap.afterPageHeading;
 
-      if (index < projects.length - 1) {
-        cursorY += t.gap.sectionGap;
-        const lineY = cursorY;
-        parent.append(
-          createSvgElement("line", {
-            x1: x,
-            y1: lineY,
-            x2: x + t.dividerWidth,
-            y2: lineY,
-            stroke: t.colors.divider,
-            "stroke-width": 1,
-          }),
+      items.forEach((item, index) => {
+        if (item.link) {
+          const link = createSvgElement("a", {
+            href: item.link,
+            target: "_blank",
+            rel: "noreferrer noopener",
+          });
+          link.style.cursor = "pointer";
+          const linkGroup = createSvgElement("g", {});
+          cy = appendTextLines(
+            linkGroup,
+            colX,
+            cy,
+            item.nameLines,
+            {
+              fill: typo.colors.body,
+              fontFamily: SANS_FONT,
+              fontSize: typo.itemTitle.size,
+              fontWeight: typo.itemTitle.weight,
+            },
+            typo.itemTitle.size * typo.itemTitle.lineHeight,
+          );
+          link.append(linkGroup);
+          parent.append(link);
+        } else {
+          cy = appendTextLines(
+            parent,
+            colX,
+            cy,
+            item.nameLines,
+            {
+              fill: typo.colors.body,
+              fontFamily: SANS_FONT,
+              fontSize: typo.itemTitle.size,
+              fontWeight: typo.itemTitle.weight,
+            },
+            typo.itemTitle.size * typo.itemTitle.lineHeight,
+          );
+        }
+        cy += typo.gap.titleToDetail;
+        cy = appendTextLines(
+          parent,
+          colX,
+          cy,
+          item.details,
+          {
+            fill: typo.colors.body,
+            fontFamily: SANS_FONT,
+            fontSize: typo.detail.size,
+            fontWeight: typo.detail.weight,
+          },
+          typo.detail.size * typo.detail.lineHeight,
         );
-        cursorY += t.gap.sectionGap;
-      }
-    });
+
+        if (index < items.length - 1) {
+          cy += typo.gap.sectionGap;
+          const lineY = cy;
+          parent.append(
+            createSvgElement("line", {
+              x1: colX,
+              y1: lineY,
+              x2: colX + typo.dividerWidth,
+              y2: lineY,
+              stroke: typo.colors.divider,
+              "stroke-width": 1,
+            }),
+          );
+          cy += typo.gap.sectionGap;
+        }
+      });
+      return cy;
+    };
+
+    const col1EndY = renderColumn(projects, "Things I've built.", x, cursorY, t);
+
+    if (twoColFits) {
+      renderColumn(publications, "Things I've published.", col2X, cursorY, t2);
+    } else {
+      cursorY = col1EndY + t.gap.sectionGap * 2;
+      renderColumn(publications, "Things I've published.", col2X, cursorY, t);
+    }
     return;
   }
 
