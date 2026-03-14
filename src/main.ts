@@ -1168,10 +1168,16 @@ function renderManifestoPreview(
       parent,
       x,
       cursorY,
-      [
-        "I build and write at Cornell.",
-        "Interviewed at YC, published in The Concord Review.",
-      ],
+      layout.mobile
+        ? [
+            "I build and write at Cornell.",
+            "Interviewed at YC,",
+            "published in The Concord Review.",
+          ]
+        : [
+            "I build and write at Cornell.",
+            "Interviewed at YC, published in The Concord Review.",
+          ],
       {
         fill: t.colors.body,
         fontFamily: SANS_FONT,
