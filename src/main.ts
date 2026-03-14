@@ -1466,12 +1466,12 @@ function renderManifestoPreview(
   }> = [
     {
       label: "Favorite artist",
-      items: [{ title: "Theo van Doesburg", image: "composition.webp" }],
+      items: [{ title: "Theo van Doesburg", image: "composition.webp", link: "https://www.moma.org/artists/6076-theo-van-doesburg" }],
     },
     {
       label: "Favorite music",
       items: [
-        { title: "Tesselation", detail: "Mild High Club", link: "https://open.spotify.com/track/3BIzHNxAQbRTY4LCp1oMR1" },
+        { title: "Homage", detail: "Mild High Club", link: "https://open.spotify.com/track/7DcJ6fEBb7BaKuYKTwiDxK" },
         { title: "Juna", detail: "Clairo", link: "https://open.spotify.com/track/2mWfVxEo4xZYDaz0v7hYrN" },
         { title: "Ballade No. 1 in G Minor", detail: "Chopin", link: "https://open.spotify.com/track/5Ks5ENUFNQDfaqxjZnCkVJ" },
       ],
@@ -1487,7 +1487,7 @@ function renderManifestoPreview(
   ];
 
   let firstSectionTitleY = 0;
-  const pendingImages: Array<{ src: string; hitY: number; hitTitle: string }> = [];
+  const pendingImages: Array<{ src: string; hitY: number; hitTitle: string; link?: string }> = [];
   let maxBottom = cursorY;
 
   sections.forEach(({ label, items }, index) => {
@@ -1647,7 +1647,7 @@ function renderManifestoPreview(
       }
 
       if (item.image) {
-        pendingImages.push({ src: item.image, hitY: cursorY, hitTitle: item.title });
+        pendingImages.push({ src: item.image, hitY: cursorY, hitTitle: item.title, link: item.link });
       }
 
       cursorY += t.detail.size * t.detail.lineHeight;
@@ -1723,8 +1723,12 @@ function renderManifestoPreview(
       }
     });
     hit.addEventListener("click", () => {
-      tapped = !tapped;
-      preview.setAttribute("opacity", tapped ? "1" : "0");
+      if (img.link) {
+        window.open(img.link, "_blank", "noopener");
+      } else {
+        tapped = !tapped;
+        preview.setAttribute("opacity", tapped ? "1" : "0");
+      }
     });
     parent.append(hit);
     maxBottom = Math.max(maxBottom, imgY + imgSize);
