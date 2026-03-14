@@ -184,7 +184,8 @@ type InfoLayout = {
   width: number;
   availableWidth: number;
   diamondCenterY: number;
-  mobile: boolean;
+  stacked: boolean;
+  compact: boolean;
 };
 
 type ResolvedType = {
@@ -295,6 +296,9 @@ const SPEC: CompositionSpec = {
 
 const svgNs = "http://www.w3.org/2000/svg";
 const SANS_FONT = "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif";
+const COMPACT_LAYOUT_MAX_WIDTH = 767;
+const SIDE_LAYOUT_MIN_WIDTH = 1080;
+const MIN_TOUCH_TARGET = 44;
 const INITIAL_STATE: AppState = {
   page: "home",
   emailFeedback: null,
@@ -825,10 +829,14 @@ function appendContactLinks(
 ): number {
   const iconColor = mixColor(spec.colors.line, spec.colors.title, 0.76);
   const iconSize = clamp(width * 0.052, 18, 20);
-  const gap = clamp(iconSize * 0.92, 14, 18);
-  const hitInset = clamp(iconSize * 0.42, 6, 8);
+  const hitInset = Math.max(
+    clamp(iconSize * 0.42, 6, 8),
+    (MIN_TOUCH_TARGET - iconSize) / 2,
+  );
+  const touchSize = iconSize + hitInset * 2;
+  const gap = clamp(iconSize * 0.55, 8, 12);
   const baseOpacity = 0.78;
-  let bottom = y + iconSize;
+  let bottom = y + touchSize;
   const contacts: Array<
     | {
         kind: "button";
@@ -884,7 +892,7 @@ function appendContactLinks(
     title.textContent = contact.title;
 
     const wrapper = createSvgElement("g", {
-      transform: `translate(${x + index * (iconSize + gap)} ${y})`,
+      transform: `translate(${x + index * (touchSize + gap)} ${y})`,
       opacity: index === 0 && feedback?.tone === "success" ? "1" : String(baseOpacity),
     });
 
@@ -978,7 +986,7 @@ function appendContactLinks(
   });
 
   if (feedback !== null) {
-    const statusY = y + iconSize + clamp(iconSize * 0.72, 10, 13);
+    const statusY = y + touchSize + clamp(iconSize * 0.72, 10, 13);
     const statusLineWidth = clamp(iconSize * 0.72, 11, 14);
     const statusGap = clamp(iconSize * 0.34, 5, 7);
     const statusFontSize = clamp(width * 0.022, 10.5, 11.5);
@@ -1083,8 +1091,10 @@ function deriveInfoLayout(
   const sideWidth = frame.viewport.width - sideX - edgePad;
   const headerOverlaps = headerHeight > 0 && (geometry.header.width * frame.scale) > (frame.viewport.width - (geometry.header.width * frame.scale));
   const sideFits = sideWidth >= 330 && !headerOverlaps;
+  const compact = frame.viewport.width <= COMPACT_LAYOUT_MAX_WIDTH;
+  const prefersSideLayout = frame.viewport.width >= SIDE_LAYOUT_MIN_WIDTH;
 
-  if (sideFits) {
+  if (prefersSideLayout && sideFits) {
     const w = Math.min(sideWidth, preferredWidth);
     const typo = deriveContentTypography(w, spec);
     const diamondCenterPx = geometry.diamondCenter.y * frame.scale;
@@ -1117,21 +1127,36 @@ function deriveInfoLayout(
       width: w,
       availableWidth: sideWidth,
       diamondCenterY: diamondCenterPx,
-      mobile: false,
+      stacked: false,
+      compact: false,
     };
   }
 
-  const mobileWidth = clamp(frame.viewport.width * 0.7, 280, 420);
-  const mobileX = (frame.viewport.width - mobileWidth) / 2;
-  const mobileY = headerHeight + clamp(frame.viewport.height * 0.06, 32, 60);
+  const stackedInset = clamp(
+    frame.viewport.width * (compact ? 0.05 : 0.08),
+    compact ? 16 : 28,
+    compact ? 24 : 56,
+  );
+  const stackedWidth = clamp(
+    frame.viewport.width - stackedInset * 2,
+    compact ? 288 : 440,
+    compact ? 420 : 680,
+  );
+  const stackedX = (frame.viewport.width - stackedWidth) / 2;
+  const stackedY = headerHeight + clamp(
+    frame.viewport.height * (compact ? 0.042 : 0.055),
+    compact ? 24 : 32,
+    compact ? 40 : 60,
+  );
 
   return {
-    x: mobileX,
-    y: mobileY,
-    width: mobileWidth,
-    availableWidth: mobileWidth,
+    x: stackedX,
+    y: stackedY,
+    width: stackedWidth,
+    availableWidth: stackedWidth,
     diamondCenterY: geometry.diamondCenter.y * frame.scale,
-    mobile: true,
+    stacked: true,
+    compact,
   };
 }
 
@@ -1168,7 +1193,7 @@ function renderManifestoPreview(
       parent,
       x,
       cursorY,
-      layout.mobile
+      layout.compact
         ? [
             "I build and write at Cornell.",
             "Interviewed at YC,",
@@ -1206,7 +1231,7 @@ function renderManifestoPreview(
         detail: ["Visualizing $65M in participatory budgeting.", "Deploying with NYC gov."],
         link: "https://ionyc.netlify.app/",
       },
-      ...(layout.mobile
+      ...(layout.stacked
         ? [
             {
               nameLines: ["Armada"],
@@ -1427,11 +1452,13 @@ function renderManifestoPreview(
     chevronButton.style.outline = "none";
 
     const hitPad = 12;
+    const hitHeight = Math.max(MIN_TOUCH_TARGET, chevronSize + hitPad * 2);
+    const hitY = chevronY + chevronSize / 2 - hitHeight / 2;
     const hit = createSvgElement("rect", {
       x: x - hitPad,
-      y: chevronY - hitPad,
+      y: hitY,
       width: chevronX + chevronSize * 0.6 + hitPad - x + hitPad,
-      height: chevronSize + hitPad * 2,
+      height: hitHeight,
       fill: "transparent",
       "pointer-events": "all",
     });
@@ -1633,12 +1660,18 @@ function renderManifestoPreview(
         const trackId = item.link.split("/track/")[1]?.split("?")[0];
         if (trackId) {
           const hitPad = 4;
+          const hitHeight = layout.stacked
+            ? Math.max(MIN_TOUCH_TARGET, lineH + hitPad * 2)
+            : lineH + hitPad * 2;
+          const hitY = layout.stacked
+            ? cursorY + lineH / 2 - hitHeight / 2
+            : cursorY - hitPad;
 
           const hit = createSvgElement("rect", {
             x: x - hitPad,
-            y: cursorY - hitPad,
+            y: hitY,
             width: layout.width + hitPad * 2,
-            height: lineH + hitPad * 2,
+            height: hitHeight,
             fill: "transparent",
             "pointer-events": "all",
           });
@@ -1647,6 +1680,11 @@ function renderManifestoPreview(
 
           hit.addEventListener("click", (e) => {
             e.stopPropagation();
+            if (layout.stacked) {
+              window.open(item.link, "_blank", "noopener");
+              return;
+            }
+
             const svg = parent.closest("svg") as SVGSVGElement | null;
             if (!svg) return;
 
@@ -1732,7 +1770,7 @@ function renderManifestoPreview(
     let imgX: number;
     let imgY: number;
 
-    if (layout.mobile) {
+    if (layout.stacked) {
       imgSize = layout.width * 0.7;
       imgX = x + (layout.width - imgSize) / 2;
       imgY = imgBottomY + t.gap.afterPageHeading;
@@ -1749,42 +1787,70 @@ function renderManifestoPreview(
       y: imgY,
       width: imgSize,
       height: imgSize,
-      opacity: 0,
+      opacity: layout.stacked ? 1 : 0,
       preserveAspectRatio: "xMidYMid slice",
     });
-    preview.style.transition = "opacity 0.25s ease";
+    preview.style.transition = layout.stacked ? "none" : "opacity 0.25s ease";
     preview.style.pointerEvents = "none";
     parent.append(preview);
 
     const hitPad = 4;
+    const hitHeight = layout.stacked
+      ? Math.max(MIN_TOUCH_TARGET, t.detail.size * t.detail.lineHeight + hitPad * 2)
+      : t.detail.size * t.detail.lineHeight + hitPad * 2;
+    const hitY = layout.stacked
+      ? img.hitY + (t.detail.size * t.detail.lineHeight) / 2 - hitHeight / 2
+      : img.hitY - hitPad;
     const hit = createSvgElement("rect", {
       x: x - hitPad,
-      y: img.hitY - hitPad,
+      y: hitY,
       width: estimateTextWidth(img.hitTitle, t.detail.size) + hitPad * 2,
-      height: t.detail.size * t.detail.lineHeight + hitPad * 2,
+      height: hitHeight,
       fill: "transparent",
       "pointer-events": "all",
     });
     hit.style.cursor = "pointer";
     let tapped = false;
-    hit.addEventListener("pointerenter", (e) => {
-      if (e.pointerType !== "touch") {
-        preview.setAttribute("opacity", "1");
-      }
-    });
-    hit.addEventListener("pointerleave", (e) => {
-      if (e.pointerType !== "touch") {
-        preview.setAttribute("opacity", "0");
-      }
-    });
-    hit.addEventListener("click", () => {
-      if (img.link) {
+
+    if (!layout.stacked) {
+      hit.addEventListener("pointerenter", (e) => {
+        if (e.pointerType !== "touch") {
+          preview.setAttribute("opacity", "1");
+        }
+      });
+      hit.addEventListener("pointerleave", (e) => {
+        if (e.pointerType !== "touch") {
+          preview.setAttribute("opacity", "0");
+        }
+      });
+      hit.addEventListener("click", () => {
+        if (img.link) {
+          window.open(img.link, "_blank", "noopener");
+        } else {
+          tapped = !tapped;
+          preview.setAttribute("opacity", tapped ? "1" : "0");
+        }
+      });
+    } else if (img.link) {
+      hit.addEventListener("click", () => {
         window.open(img.link, "_blank", "noopener");
-      } else {
-        tapped = !tapped;
-        preview.setAttribute("opacity", tapped ? "1" : "0");
-      }
-    });
+      });
+
+      const previewHit = createSvgElement("rect", {
+        x: imgX,
+        y: imgY,
+        width: imgSize,
+        height: imgSize,
+        fill: "transparent",
+        "pointer-events": "all",
+      });
+      previewHit.style.cursor = "pointer";
+      previewHit.addEventListener("click", () => {
+        window.open(img.link!, "_blank", "noopener");
+      });
+      parent.append(previewHit);
+    }
+
     parent.append(hit);
     maxBottom = Math.max(maxBottom, imgY + imgSize);
   });
@@ -1827,16 +1893,21 @@ function render(
   );
   defs.append(thinkingBlur);
 
-  const isMobile = infoLayout.mobile;
+  const isStacked = infoLayout.stacked;
+  const isCompact = infoLayout.compact;
   const headerHeight = geometry.header.height * frame.scale;
   const desktopHeaderWidth = geometry.header.width * frame.scale;
-  const headerWidth = isMobile ? frame.viewport.width * 0.5 : desktopHeaderWidth;
-  const headerSectionWidth = isMobile ? frame.viewport.width * 0.25 : headerWidth / 2;
+  const headerWidth = isStacked ? frame.viewport.width * 0.5 : desktopHeaderWidth;
+  const headerSectionWidth = isStacked ? frame.viewport.width * 0.25 : headerWidth / 2;
   const headerLabelPadXRatio = geometry.titlePos.x / geometry.header.width;
   const headerLabelXOffset = headerSectionWidth * headerLabelPadXRatio;
   const headerLabelY = headerHeight / 2 + spec.text.headerTextOffsetY * frame.scale;
-  const headerLabelSize = isMobile
-    ? clamp(frame.viewport.width * 0.06, 24, 44)
+  const headerLabelSize = isStacked
+    ? clamp(
+        frame.viewport.width * (isCompact ? 0.062 : 0.05),
+        24,
+        isCompact ? 34 : 40,
+      )
     : spec.text.titleSize * frame.scale;
   const headerFill = spec.colors.title;
   const nameIdleFill = mixColor(spec.colors.headerLabel, spec.colors.title, 0.25);
@@ -2205,8 +2276,8 @@ function render(
 
   contentGroup.append(structureGroup, boatGroup, diamondLink, signalLink, terminalGroup);
 
-  if (infoLayout.mobile) {
-    contentGroup.setAttribute("opacity", "0.2");
+  if (isStacked) {
+    contentGroup.setAttribute("opacity", isCompact ? "0" : "0.14");
     contentGroup.style.pointerEvents = "none";
   }
 
@@ -2219,7 +2290,7 @@ function render(
     onWorkSectionToggle,
   );
   const bottomPad = clamp(frame.viewport.height * 0.08, 28, 56);
-  const surfaceHeight = infoLayout.mobile
+  const surfaceHeight = infoLayout.stacked
     ? Math.max(frame.viewport.height, Math.ceil(infoBottom + bottomPad))
     : frame.viewport.height;
   const shouldScroll = surfaceHeight > frame.viewport.height;
@@ -2248,7 +2319,11 @@ function render(
     fill: spec.colors.background,
   });
 
-  svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
+  if (isCompact) {
+    svg.append(defs, background, headerBoxes, headerOutline, infoGroup);
+  } else {
+    svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
+  }
 
   return {
     headerBoxes: headerBoxRefs,
