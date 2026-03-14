@@ -625,9 +625,11 @@ function validateConstraints(
 }
 
 function getViewport(svg: SVGSVGElement): Size {
+  const root = document.documentElement;
+
   return {
-    width: Math.max(1, Math.round(svg.clientWidth)),
-    height: Math.max(1, Math.round(svg.clientHeight)),
+    width: Math.max(1, Math.round(root.clientWidth || svg.clientWidth || globalThis.innerWidth)),
+    height: Math.max(1, Math.round(root.clientHeight || globalThis.innerHeight)),
   };
 }
 
@@ -804,12 +806,13 @@ function appendContactLinks(
   spec: CompositionSpec,
   feedback: ContactFeedback,
   onEmailCopy: () => void,
-): void {
+): number {
   const iconColor = mixColor(spec.colors.line, spec.colors.title, 0.76);
   const iconSize = clamp(width * 0.052, 18, 20);
   const gap = clamp(iconSize * 0.92, 14, 18);
   const hitInset = clamp(iconSize * 0.42, 6, 8);
   const baseOpacity = 0.78;
+  let bottom = y + iconSize;
   const contacts: Array<
     | {
         kind: "button";
@@ -962,6 +965,7 @@ function appendContactLinks(
     const statusY = y + iconSize + clamp(iconSize * 0.72, 10, 13);
     const statusLineWidth = clamp(iconSize * 0.72, 11, 14);
     const statusGap = clamp(iconSize * 0.34, 5, 7);
+    const statusFontSize = clamp(width * 0.022, 10.5, 11.5);
     const statusColor =
       feedback.tone === "success"
         ? mixColor(spec.colors.line, spec.colors.title, 0.82)
@@ -988,13 +992,17 @@ function appendContactLinks(
       {
         fill: statusColor,
         fontFamily: SANS_FONT,
-        fontSize: clamp(width * 0.022, 10.5, 11.5),
+        fontSize: statusFontSize,
         fontWeight: 600,
         letterSpacing: 1.4,
         opacity: 0.9,
       },
     );
+
+    bottom = Math.max(bottom, statusY + statusFontSize);
   }
+
+  return bottom;
 }
 
 function resolveTypeRole(role: TypeRole, width: number): ResolvedType {
@@ -1116,7 +1124,7 @@ function renderManifestoPreview(
   spec: CompositionSpec,
   onEmailCopy: () => void,
   onWorkSectionToggle: () => void,
-): void {
+): number {
   const t = deriveContentTypography(layout.width, spec);
   const x = layout.x;
   let cursorY = layout.y;
@@ -1153,8 +1161,7 @@ function renderManifestoPreview(
       t.body.size * t.body.lineHeight,
     );
     cursorY += t.gap.afterBodyToLinks;
-    appendContactLinks(parent, x, cursorY, layout.width, spec, state.emailFeedback, onEmailCopy);
-    return;
+    return appendContactLinks(parent, x, cursorY, layout.width, spec, state.emailFeedback, onEmailCopy);
   }
 
   if (state.page === "work") {
@@ -1173,6 +1180,20 @@ function renderManifestoPreview(
         detail: "Deploying with NYC gov.",
         link: "https://ionyc.netlify.app/",
       },
+      ...(layout.mobile
+        ? [
+            {
+              nameLines: ["Armada"],
+              detail: "armada.build",
+              link: "https://armada.build/",
+            },
+            {
+              nameLines: ["Cornell Claude", "Club"],
+              detail: "cornellclaude.club",
+              link: "https://cornellclaude.club/",
+            },
+          ]
+        : []),
     ];
 
     const publications: Array<{
@@ -1421,7 +1442,7 @@ function renderManifestoPreview(
 
     chevronButton.append(hit);
     parent.append(chevronButton);
-    return;
+    return chevronY + chevronSize + hitPad;
   }
 
   cursorY = appendTextLines(
@@ -1458,15 +1479,16 @@ function renderManifestoPreview(
     {
       label: "Favorite books",
       items: [
-        { title: "The Road to Serfdom" },
-        { title: "The Calculus of Consent" },
-        { title: "Team of Rivals" },
+        { title: "The Road to Serfdom", detail: "Hayek" },
+        { title: "On Liberty", detail: "Mill" },
+        { title: "Team of Rivals", detail: "Goodwin" },
       ],
     },
   ];
 
   let firstSectionTitleY = 0;
   const pendingImages: Array<{ src: string; hitY: number; hitTitle: string }> = [];
+  let maxBottom = cursorY;
 
   sections.forEach(({ label, items }, index) => {
     if (index === 0) firstSectionTitleY = cursorY;
@@ -1705,7 +1727,10 @@ function renderManifestoPreview(
       preview.setAttribute("opacity", tapped ? "1" : "0");
     });
     parent.append(hit);
+    maxBottom = Math.max(maxBottom, imgY + imgSize);
   });
+
+  return Math.max(maxBottom, cursorY);
 }
 
 function render(
@@ -1723,9 +1748,6 @@ function render(
   const strokeWidth = clamp(frame.scale * 1.2, 1, 1.6);
   const headerHeightEarly = geometry.header.height * frame.scale;
   const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeightEarly, spec, state.page);
-
-  svg.setAttribute("viewBox", `0 0 ${frame.viewport.width} ${frame.viewport.height}`);
-  svg.setAttribute("preserveAspectRatio", "none");
   svg.replaceChildren();
   document.querySelectorAll("[data-spotify-overlay]").forEach((el) => el.remove());
 
@@ -1743,14 +1765,6 @@ function render(
     }),
   );
   defs.append(thinkingBlur);
-
-  const background = createSvgElement("rect", {
-    x: 0,
-    y: 0,
-    width: frame.viewport.width,
-    height: frame.viewport.height,
-    fill: spec.colors.background,
-  });
 
   const isMobile = infoLayout.mobile;
   const headerHeight = geometry.header.height * frame.scale;
@@ -2135,7 +2149,43 @@ function render(
     contentGroup.style.pointerEvents = "none";
   }
 
-  renderManifestoPreview(infoGroup, infoLayout, state, spec, onEmailCopy, onWorkSectionToggle);
+  const infoBottom = renderManifestoPreview(
+    infoGroup,
+    infoLayout,
+    state,
+    spec,
+    onEmailCopy,
+    onWorkSectionToggle,
+  );
+  const bottomPad = clamp(frame.viewport.height * 0.08, 28, 56);
+  const surfaceHeight = infoLayout.mobile
+    ? Math.max(frame.viewport.height, Math.ceil(infoBottom + bottomPad))
+    : frame.viewport.height;
+  const shouldScroll = surfaceHeight > frame.viewport.height;
+
+  svg.setAttribute("viewBox", `0 0 ${frame.viewport.width} ${surfaceHeight}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  if (shouldScroll) {
+    svg.style.height = `${surfaceHeight}px`;
+  } else {
+    svg.style.removeProperty("height");
+  }
+
+  document.documentElement.style.overflowY = shouldScroll ? "auto" : "hidden";
+  document.body.style.overflowY = shouldScroll ? "auto" : "hidden";
+
+  if (!shouldScroll && globalThis.scrollY > 0) {
+    globalThis.scrollTo(0, 0);
+  }
+
+  const background = createSvgElement("rect", {
+    x: 0,
+    y: 0,
+    width: frame.viewport.width,
+    height: surfaceHeight,
+    fill: spec.colors.background,
+  });
 
   svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
 
@@ -2811,6 +2861,7 @@ function mount(spec: CompositionSpec): void {
   };
 
   scheduleRender();
+  host.addEventListener("resize", scheduleRender);
 
   const observer = new ResizeObserver(() => {
     scheduleRender();
