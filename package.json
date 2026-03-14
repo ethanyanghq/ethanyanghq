@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:favicon": "node scripts/generate-favicon.mjs",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "check": "tsc -p tsconfig.json --noEmit"
