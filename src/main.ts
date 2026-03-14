@@ -1,3 +1,5 @@
+// types
+
 type Point = { x: number; y: number };
 type Rect = { x: number; y: number; width: number; height: number };
 type Size = { width: number; height: number };
@@ -220,6 +222,8 @@ type TextStyle = {
   fontStyle?: string;
 };
 
+// spec and constants
+
 const SPEC: CompositionSpec = {
   reference: {
     width: 1600,
@@ -297,6 +301,8 @@ const INITIAL_STATE: AppState = {
   workSection: "built",
 };
 
+// utilities
+
 function toPx(value: number): number {
   return Math.round(value);
 }
@@ -369,6 +375,8 @@ function rotatePoint(point: Point, center: Point, angleDeg: number): Point {
     y: center.y + dx * sin + dy * cos,
   };
 }
+
+// animation helpers
 
 function animate(options: AnimationOptions): () => void {
   const {
@@ -460,6 +468,8 @@ function runStepSequence<T>(
     }
   };
 }
+
+// layout and geometry
 
 function deriveGeometry(spec: CompositionSpec): DerivedGeometry {
   const { width, height } = spec.reference;
@@ -633,6 +643,8 @@ function getViewport(svg: SVGSVGElement): Size {
   };
 }
 
+// svg helpers
+
 function createSvgElement<T extends keyof SVGElementTagNameMap>(
   tag: T,
   attrs: Record<string, string | number>,
@@ -707,6 +719,8 @@ function appendTextLines(
 
   return cursorY;
 }
+
+// icons
 
 function renderEmailIcon(parent: SVGElement, color: string): void {
   const strokeAttrs = {
@@ -797,6 +811,8 @@ function renderGitHubIcon(parent: SVGElement, color: string): void {
     }),
   );
 }
+
+// contact links (email, x, linkedin, github)
 
 function appendContactLinks(
   parent: SVGElement,
@@ -1005,6 +1021,8 @@ function appendContactLinks(
   return bottom;
 }
 
+// typography resolution
+
 function resolveTypeRole(role: TypeRole, width: number): ResolvedType {
   return {
     size: clamp(width * role.ratio, role.min, role.max),
@@ -1116,6 +1134,8 @@ function deriveInfoLayout(
     mobile: true,
   };
 }
+
+// page content (home, work, more)
 
 function renderManifestoPreview(
   parent: SVGElement,
@@ -1737,6 +1757,8 @@ function renderManifestoPreview(
   return Math.max(maxBottom, cursorY);
 }
 
+// main render, builds full svg each frame
+
 function render(
   spec: CompositionSpec,
   svg: SVGSVGElement,
@@ -2224,6 +2246,8 @@ function render(
   };
 }
 
+// hover and click interactions
+
 function setupHeaderBoxInteraction(
   refs: HeaderBoxRefs,
   reducedMotion: boolean,
@@ -2586,6 +2610,8 @@ function randomGhostCharacter(): string {
   return glyphs[Math.floor(Math.random() * glyphs.length)];
 }
 
+// clipboard
+
 async function copyTextToClipboard(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -2770,6 +2796,8 @@ function setupInteractions(
     });
   };
 }
+
+// app entry, state management, resize handling
 
 function mount(spec: CompositionSpec): void {
   const svg = document.getElementById("composition") as SVGSVGElement | null;
