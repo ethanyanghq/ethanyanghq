@@ -180,6 +180,7 @@ type InfoLayout = {
   y: number;
   width: number;
   diamondCenterY: number;
+  mobile: boolean;
 };
 
 type ResolvedType = {
@@ -1051,7 +1052,8 @@ function deriveInfoLayout(
   const diamondRight = (geometry.diamondCenter.x + geometry.diamondHalfDiag) * frame.scale;
   const sideX = diamondRight + gap;
   const sideWidth = frame.viewport.width - sideX - edgePad;
-  const sideFits = sideWidth >= 330;
+  const headerOverlaps = headerHeight > 0 && (geometry.header.width * frame.scale) > (frame.viewport.width - (geometry.header.width * frame.scale));
+  const sideFits = sideWidth >= 330 && !headerOverlaps;
 
   if (sideFits) {
     const w = Math.min(sideWidth, preferredWidth);
@@ -1085,14 +1087,20 @@ function deriveInfoLayout(
       y: Math.max(minY, idealY),
       width: w,
       diamondCenterY: diamondCenterPx,
+      mobile: false,
     };
   }
 
+  const mobileWidth = clamp(frame.viewport.width * 0.7, 280, 420);
+  const mobileX = (frame.viewport.width - mobileWidth) / 2;
+  const mobileY = headerHeight + clamp(frame.viewport.height * 0.06, 32, 60);
+
   return {
-    x: edgePad,
-    y: geometry.branchEnd.y * frame.scale + clamp(frame.viewport.height * 0.05, 28, 54),
-    width: frame.viewport.width - edgePad * 2,
+    x: mobileX,
+    y: mobileY,
+    width: mobileWidth,
     diamondCenterY: geometry.diamondCenter.y * frame.scale,
+    mobile: true,
   };
 }
 
@@ -1476,16 +1484,27 @@ function renderManifestoPreview(
   pendingImages.forEach((img) => {
     const imgTopY = firstSectionTitleY;
     const imgBottomY = cursorY;
-    const imgHeight = imgBottomY - imgTopY;
-    const imgGap = clamp(layout.width * 0.12, 36, 60);
-    const imgX = x + layout.width + imgGap;
+    let imgSize: number;
+    let imgX: number;
+    let imgY: number;
+
+    if (layout.mobile) {
+      imgSize = layout.width * 0.7;
+      imgX = x + (layout.width - imgSize) / 2;
+      imgY = imgBottomY + t.gap.afterPageHeading;
+    } else {
+      imgSize = imgBottomY - imgTopY;
+      const imgGap = clamp(layout.width * 0.12, 36, 60);
+      imgX = x + layout.width + imgGap;
+      imgY = imgTopY;
+    }
 
     const preview = createSvgElement("image", {
       href: img.src,
       x: imgX,
-      y: imgTopY,
-      width: imgHeight,
-      height: imgHeight,
+      y: imgY,
+      width: imgSize,
+      height: imgSize,
       opacity: 0,
       preserveAspectRatio: "xMidYMid slice",
     });
@@ -1534,6 +1553,8 @@ function render(
 
   const frame = deriveLayoutFrame(spec, getViewport(svg), bounds, geometry);
   const strokeWidth = clamp(frame.scale * 1.2, 1, 1.6);
+  const headerHeightEarly = geometry.header.height * frame.scale;
+  const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeightEarly, spec, state.page);
 
   svg.setAttribute("viewBox", `0 0 ${frame.viewport.width} ${frame.viewport.height}`);
   svg.setAttribute("preserveAspectRatio", "none");
@@ -1563,13 +1584,17 @@ function render(
     fill: spec.colors.background,
   });
 
+  const isMobile = infoLayout.mobile;
   const headerHeight = geometry.header.height * frame.scale;
-  const headerWidth = geometry.header.width * frame.scale;
-  const headerSectionWidth = headerWidth / 2;
+  const desktopHeaderWidth = geometry.header.width * frame.scale;
+  const headerWidth = isMobile ? frame.viewport.width * 0.5 : desktopHeaderWidth;
+  const headerSectionWidth = isMobile ? frame.viewport.width * 0.25 : headerWidth / 2;
   const headerLabelPadXRatio = geometry.titlePos.x / geometry.header.width;
   const headerLabelXOffset = headerSectionWidth * headerLabelPadXRatio;
   const headerLabelY = headerHeight / 2 + spec.text.headerTextOffsetY * frame.scale;
-  const headerLabelSize = spec.text.titleSize * frame.scale;
+  const headerLabelSize = isMobile
+    ? clamp(frame.viewport.width * 0.06, 24, 44)
+    : spec.text.titleSize * frame.scale;
   const headerFill = spec.colors.title;
   const nameIdleFill = mixColor(spec.colors.headerLabel, spec.colors.title, 0.25);
   const activeNameFill = spec.colors.title;
@@ -1936,7 +1961,12 @@ function render(
   terminalGroup.append(panel, cursor, terminalHit);
 
   contentGroup.append(structureGroup, boatGroup, diamondLink, signalLink, terminalGroup);
-  const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeight, spec, state.page);
+
+  if (infoLayout.mobile) {
+    contentGroup.setAttribute("opacity", "0.2");
+    contentGroup.style.pointerEvents = "none";
+  }
+
   renderManifestoPreview(infoGroup, infoLayout, state, spec, onEmailCopy);
 
   svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
