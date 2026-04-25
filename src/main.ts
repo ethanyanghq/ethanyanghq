@@ -194,7 +194,7 @@ const SPEC: CompositionSpec = {
     height: 1000,
   },
   layout: {
-    scale: 1.0,
+    scale: 0.85,
     rightGutterRatio: 0.14,
     minRightGutter: 24,
     maxRightGutter: 220,
