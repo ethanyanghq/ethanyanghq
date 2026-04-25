@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev-server.mjs --watch",
     "generate:favicon": "node scripts/generate-favicon.mjs",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "serve": "node scripts/dev-server.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

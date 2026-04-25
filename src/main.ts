@@ -46,11 +46,6 @@ type CompositionSpec = {
     diamondCenterX: number;
     diamondCenterY: number;
     diamondHalfDiag: number;
-    circleRadius: number;
-    panelOffsetXFromCircleLeft: number;
-    panelOffsetYFromCircleBottom: number;
-    panelWidth: number;
-    panelHeight: number;
     titleX: number;
     titleY: number;
   };
@@ -58,16 +53,8 @@ type CompositionSpec = {
     title: string;
     work: string;
     talk: string;
-    thinking: string;
-    cursor: string;
     titleSize: number;
     headerTextOffsetY: number;
-    thinkingSize: number;
-    cursorSize: number;
-    thinkingOffsetXFromCircleCenter: number;
-    thinkingOffsetYFromCircleCenter: number;
-    cursorOffsetXFromPanelLeft: number;
-    cursorOffsetYFromPanelTop: number;
   };
   typography: {
     hero: TypeRole;
@@ -89,11 +76,7 @@ type CompositionSpec = {
     line: string;
     title: string;
     headerLabel: string;
-    cursor: string;
     diamond: string;
-    circle: string;
-    thinking: string;
-    panel: string;
   };
 };
 
@@ -105,12 +88,7 @@ type DerivedGeometry = {
   branchEnd: Point;
   diamondCenter: Point;
   diamondHalfDiag: number;
-  circleCenter: Point;
-  circleRadius: number;
-  panel: Rect;
   titlePos: Point;
-  thinkingPos: Point;
-  cursorPos: Point;
 };
 
 type PageKey = "home" | "work" | "talk";
@@ -147,26 +125,11 @@ type BoatRefs = {
   center: Point;
 };
 
-type SignalRefs = {
-  hit: SVGRectElement;
-  halo: SVGCircleElement;
-  thinkingSoft: SVGTextElement;
-  thinkingCrisp: SVGTextElement;
-  baseRadius: number;
-};
-
-type TerminalRefs = {
-  hit: SVGRectElement;
-  panel: SVGRectElement;
-  cursor: SVGTextElement;
-};
-
 type InteractionRefs = {
   headerBoxes: HeaderBoxRefs[];
   boat: BoatRefs;
   diamond: DiamondRefs;
-  signal: SignalRefs;
-  terminal: TerminalRefs;
+  previewCleanup: () => void;
 };
 
 type AnimationOptions = {
@@ -243,11 +206,6 @@ const SPEC: CompositionSpec = {
     diamondCenterX: 0.19125,
     diamondCenterY: 0.427,
     diamondHalfDiag: 0.0858,
-    circleRadius: 0.0375,
-    panelOffsetXFromCircleLeft: 0.05125,
-    panelOffsetYFromCircleBottom: 0.073,
-    panelWidth: 0.15625,
-    panelHeight: 0.136,
     titleX: 0.040625,
     titleY: 0.043,
   },
@@ -255,19 +213,11 @@ const SPEC: CompositionSpec = {
     title: "ETHAN YANG",
     work: "WORK",
     talk: "MORE",
-    thinking: "thinking?",
-    cursor: "...|",
     titleSize: 70,
     headerTextOffsetY: 6,
-    thinkingSize: 39,
-    cursorSize: 35,
-    thinkingOffsetXFromCircleCenter: -20,
-    thinkingOffsetYFromCircleCenter: 50,
-    cursorOffsetXFromPanelLeft: 15,
-    cursorOffsetYFromPanelTop: 18,
   },
   typography: {
-    hero: { ratio: 0.08, min: 30, max: 40, weight: 700, lineHeight: 1.04 },
+    hero: { ratio: 0.08, min: 30, max: 40, weight: 600, lineHeight: 1.04 },
     pageHeading: { ratio: 0.066, min: 25, max: 33, weight: 400, lineHeight: 1.02 },
     itemTitle: { ratio: 0.062, min: 24, max: 28, weight: 700, lineHeight: 1.02 },
     body: { ratio: 0.05, min: 20, max: 22, weight: 400, lineHeight: 1.34 },
@@ -286,11 +236,7 @@ const SPEC: CompositionSpec = {
     line: "#C6C3BE",
     title: "#3A3530",
     headerLabel: "#B8B8B8",
-    cursor: "#8F8A84",
     diamond: "#CFA39C",
-    circle: "#8A99B7",
-    thinking: "#B8B8B8",
-    panel: "#EEEEEE",
   },
 };
 
@@ -364,7 +310,40 @@ function mixColor(base: string, accent: string, amount: number): string {
 }
 
 function estimateTextWidth(text: string, fontSize: number): number {
-  return text.length * fontSize * 0.58;
+  // Space Grotesk averages ~0.52em per glyph at body weight; the previous 0.58
+  // factor over-estimated and triggered unnecessary line wrapping on desktop.
+  return text.length * fontSize * 0.52;
+}
+
+function wrapTextToWidth(text: string, fontSize: number, maxWidth: number): string[] {
+  if (estimateTextWidth(text, fontSize) <= maxWidth) {
+    return [text];
+  }
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const candidate = current.length === 0 ? word : `${current} ${word}`;
+    if (estimateTextWidth(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+      return;
+    }
+    if (current.length > 0) {
+      lines.push(current);
+    }
+    current = word;
+  });
+
+  if (current.length > 0) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+function wrapLinesToWidth(lines: readonly string[], fontSize: number, maxWidth: number): string[] {
+  return lines.flatMap((line) => wrapTextToWidth(line, fontSize, maxWidth));
 }
 
 function rotatePoint(point: Point, center: Point, angleDeg: number): Point {
@@ -430,49 +409,6 @@ function animate(options: AnimationOptions): () => void {
   };
 }
 
-function runStepSequence<T>(
-  frames: readonly T[],
-  stepMs: number,
-  apply: (frame: T) => void,
-  onComplete?: () => void,
-): () => void {
-  if (frames.length === 0) {
-    onComplete?.();
-    return () => undefined;
-  }
-
-  const host = globalThis;
-  let timeoutId: number | null = null;
-  let index = 0;
-  let active = true;
-
-  const advance = (): void => {
-    if (!active) {
-      return;
-    }
-
-    apply(frames[index]);
-
-    if (index === frames.length - 1) {
-      onComplete?.();
-      return;
-    }
-
-    index += 1;
-    timeoutId = host.setTimeout(advance, stepMs);
-  };
-
-  advance();
-
-  return () => {
-    active = false;
-
-    if (timeoutId !== null) {
-      host.clearTimeout(timeoutId);
-    }
-  };
-}
-
 // layout and geometry
 
 function deriveGeometry(spec: CompositionSpec): DerivedGeometry {
@@ -502,38 +438,9 @@ function deriveGeometry(spec: CompositionSpec): DerivedGeometry {
   };
   const diamondHalfDiag = toPx(width * spec.ratios.diamondHalfDiag);
 
-  const circleRadius = toPx(width * spec.ratios.circleRadius);
-  const circleCenter: Point = {
-    x: branchStart.x,
-    y: leftHit.y + circleRadius,
-  };
-
-  const panel: Rect = {
-    x:
-      circleCenter.x -
-      circleRadius +
-      toPx(width * spec.ratios.panelOffsetXFromCircleLeft),
-    y:
-      circleCenter.y +
-      circleRadius +
-      toPx(height * spec.ratios.panelOffsetYFromCircleBottom),
-    width: toPx(width * spec.ratios.panelWidth),
-    height: toPx(height * spec.ratios.panelHeight),
-  };
-
   const titlePos: Point = {
     x: toPx(width * spec.ratios.titleX),
     y: toPx(height * spec.ratios.titleY),
-  };
-
-  const thinkingPos: Point = {
-    x: circleCenter.x + spec.text.thinkingOffsetXFromCircleCenter,
-    y: circleCenter.y + spec.text.thinkingOffsetYFromCircleCenter,
-  };
-
-  const cursorPos: Point = {
-    x: panel.x + spec.text.cursorOffsetXFromPanelLeft,
-    y: panel.y + spec.text.cursorOffsetYFromPanelTop,
   };
 
   return {
@@ -544,12 +451,7 @@ function deriveGeometry(spec: CompositionSpec): DerivedGeometry {
     branchEnd,
     diamondCenter,
     diamondHalfDiag,
-    circleCenter,
-    circleRadius,
-    panel,
     titlePos,
-    thinkingPos,
-    cursorPos,
   };
 }
 
@@ -558,14 +460,8 @@ function deriveContentBounds(g: DerivedGeometry): Bounds {
     g.header.width,
     g.branchEnd.x,
     g.diamondCenter.x + g.diamondHalfDiag,
-    g.circleCenter.x + g.circleRadius,
-    g.panel.x + g.panel.width,
   );
-  const maxY = Math.max(
-    g.branchEnd.y,
-    g.circleCenter.y + g.circleRadius,
-    g.panel.y + g.panel.height,
-  );
+  const maxY = g.branchEnd.y;
 
   return {
     minX: 0,
@@ -604,7 +500,6 @@ function validateConstraints(
   bounds: Bounds,
 ): void {
   const { width, height } = spec.reference;
-  const panelBottom = g.panel.y + g.panel.height;
 
   assert(g.junction.x === g.header.width, "junction.x must equal header.width");
   assert(g.junction.y === g.header.height, "junction.y must equal header.height");
@@ -627,12 +522,6 @@ function validateConstraints(
     "branch diagonal must be 45 degrees down-right",
   );
 
-  assert(g.circleCenter.x === g.branchStart.x, "circle center x aligns with branch start x");
-  assert(
-    g.circleCenter.y - g.circleRadius === g.leftHit.y,
-    "circle top aligns with main diagonal left intercept",
-  );
-  assert(panelBottom === g.branchEnd.y, "panel bottom must align with branch endpoint");
   assert(bounds.maxY === g.branchEnd.y, "branch endpoint must be the visual bottom");
 
   assert(bounds.maxX <= toPx(width * 0.42), "active cluster must stay in left ~42% of reference");
@@ -863,9 +752,9 @@ function appendContactLinks(
     },
     {
       kind: "link",
-      href: "https://x.com/ecommerce_y",
+      href: "https://x.com/ethanyanghq",
       label: "Open Ethan's X profile",
-      title: "x.com/ecommerce_y",
+      title: "x.com/ethanyanghq",
       external: true,
       renderIcon: renderXIcon,
     },
@@ -879,9 +768,9 @@ function appendContactLinks(
     },
     {
       kind: "link",
-      href: "https://github.com/ecommerce-y/",
+      href: "https://github.com/ethanyanghq",
       label: "Open Ethan's GitHub profile",
-      title: "github.com/ecommerce-y",
+      title: "github.com/ethanyanghq",
       external: true,
       renderIcon: renderGitHubIcon,
     },
@@ -1032,8 +921,12 @@ function appendContactLinks(
 // typography resolution
 
 function resolveTypeRole(role: TypeRole, width: number): ResolvedType {
+  // Narrow viewports need a softer floor or detail/body strings wrap awkwardly
+  // or overflow; relax the min linearly under ~360px.
+  const widthFactor = width >= 360 ? 1 : Math.max(0.78, width / 360);
+  const minFloor = role.min * widthFactor;
   return {
-    size: clamp(width * role.ratio, role.min, role.max),
+    size: clamp(width * role.ratio, minFloor, role.max),
     weight: role.weight,
     lineHeight: role.lineHeight,
   };
@@ -1143,11 +1036,17 @@ function deriveInfoLayout(
     compact ? 420 : 680,
   );
   const stackedX = (frame.viewport.width - stackedWidth) / 2;
-  const stackedY = headerHeight + clamp(
+  // Pull home content down toward the optical center on tall compact viewports
+  // so the page doesn't read as empty under the social row.
+  const topPad = clamp(
     frame.viewport.height * (compact ? 0.042 : 0.055),
     compact ? 24 : 32,
     compact ? 40 : 60,
   );
+  const tallCompact = compact && frame.viewport.height >= 640;
+  const stackedY = page === "home" && tallCompact
+    ? headerHeight + Math.max(topPad, frame.viewport.height * 0.18)
+    : headerHeight + topPad;
 
   return {
     x: stackedX,
@@ -1162,6 +1061,11 @@ function deriveInfoLayout(
 
 // page content (home, work, more)
 
+type PreviewResult = {
+  bottom: number;
+  cleanup: () => void;
+};
+
 function renderManifestoPreview(
   parent: SVGElement,
   layout: InfoLayout,
@@ -1169,10 +1073,11 @@ function renderManifestoPreview(
   spec: CompositionSpec,
   onEmailCopy: () => void,
   onWorkSectionToggle: () => void,
-): number {
+): PreviewResult {
   const t = deriveContentTypography(layout.width, spec);
   const x = layout.x;
   let cursorY = layout.y;
+  const cleanups: Array<() => void> = [];
 
   if (state.page === "home") {
     cursorY = appendTextLines(
@@ -1185,24 +1090,20 @@ function renderManifestoPreview(
         fontFamily: SANS_FONT,
         fontSize: t.hero.size,
         fontWeight: t.hero.weight,
+        letterSpacing: -t.hero.size * 0.012,
       },
       t.hero.size * t.hero.lineHeight,
     );
     cursorY += t.gap.afterHero;
+    const heroBodyLines = [
+      "I build and write at Cornell.",
+      "Interviewed at YC, published in The Concord Review.",
+    ];
     cursorY = appendTextLines(
       parent,
       x,
       cursorY,
-      layout.compact
-        ? [
-            "I build and write at Cornell.",
-            "Interviewed at YC,",
-            "published in The Concord Review.",
-          ]
-        : [
-            "I build and write at Cornell.",
-            "Interviewed at YC, published in The Concord Review.",
-          ],
+      wrapLinesToWidth(heroBodyLines, t.body.size, layout.availableWidth),
       {
         fill: t.colors.body,
         fontFamily: SANS_FONT,
@@ -1212,7 +1113,11 @@ function renderManifestoPreview(
       t.body.size * t.body.lineHeight,
     );
     cursorY += t.gap.afterBodyToLinks;
-    return appendContactLinks(parent, x, cursorY, layout.width, spec, state.emailFeedback, onEmailCopy);
+    const homeBottom = appendContactLinks(parent, x, cursorY, layout.width, spec, state.emailFeedback, onEmailCopy);
+    return {
+      bottom: homeBottom,
+      cleanup: () => cleanups.forEach((fn) => fn()),
+    };
   }
 
   if (state.page === "work") {
@@ -1274,7 +1179,7 @@ function renderManifestoPreview(
       headingGroup,
       x,
       cursorY,
-      [heading],
+      wrapTextToWidth(heading, t.pageHeading.size, layout.width),
       {
         fill: t.colors.body,
         fontFamily: SANS_FONT,
@@ -1305,6 +1210,7 @@ function renderManifestoPreview(
     items.forEach((item, index) => {
       const itemGroup = createSvgElement("g", { opacity: reducedMotion ? 1 : 0 });
 
+      const wrappedNameLines = wrapLinesToWidth(item.nameLines, t.itemTitle.size, layout.width);
       if (item.link) {
         const link = createSvgElement("a", {
           href: item.link,
@@ -1317,7 +1223,7 @@ function renderManifestoPreview(
           linkGroup,
           x,
           cursorY,
-          item.nameLines,
+          wrappedNameLines,
           {
             fill: t.colors.body,
             fontFamily: SANS_FONT,
@@ -1333,7 +1239,7 @@ function renderManifestoPreview(
           itemGroup,
           x,
           cursorY,
-          item.nameLines,
+          wrappedNameLines,
           {
             fill: t.colors.body,
             fontFamily: SANS_FONT,
@@ -1345,11 +1251,12 @@ function renderManifestoPreview(
       }
 
       cursorY += t.gap.titleToDetail;
+      const wrappedDetail = wrapLinesToWidth(item.detail, t.detail.size, layout.width);
       appendTextLines(
         itemGroup,
         x,
         cursorY,
-        item.detail,
+        wrappedDetail,
         {
           fill: t.colors.body,
           fontFamily: SANS_FONT,
@@ -1358,7 +1265,7 @@ function renderManifestoPreview(
         },
         t.detail.size * t.detail.lineHeight,
       );
-      cursorY += t.detail.size * t.detail.lineHeight * item.detail.length;
+      cursorY += t.detail.size * t.detail.lineHeight * wrappedDetail.length;
 
       if (index < items.length - 1) {
         cursorY += t.gap.sectionGap;
@@ -1496,42 +1403,17 @@ function renderManifestoPreview(
     chevronButton.append(hit);
     parent.append(chevronButton);
 
-    // subtle idle pulse so user notices the chevron
-    if (!reducedMotion) {
-      const pulseInterval = globalThis.setInterval(() => {
-        if (transitioning) return;
-        animate({
-          duration: 600,
-          from: 0,
-          to: 1,
-          easing: easeOutCubic,
-          onUpdate: (_v: number, raw: number) => {
-            const nudge = Math.sin(raw * Math.PI) * 2.5;
-            chevronGroup.setAttribute("transform", `translate(${nudge.toFixed(2)} 0)`);
-          },
-          onComplete: () => {
-            chevronGroup.removeAttribute("transform");
-          },
-        });
-      }, 1000);
-      // clean up on next render
-      const observer = new MutationObserver(() => {
-        if (!chevronButton.isConnected) {
-          globalThis.clearInterval(pulseInterval);
-          observer.disconnect();
-        }
-      });
-      observer.observe(parent, { childList: true });
-    }
-
-    return chevronY + chevronSize + hitPad;
+    return {
+      bottom: chevronY + chevronSize + hitPad,
+      cleanup: () => cleanups.forEach((fn) => fn()),
+    };
   }
 
   cursorY = appendTextLines(
     parent,
     x,
     cursorY,
-    ["A few things I like."],
+    wrapTextToWidth("A few things I like.", t.pageHeading.size, layout.width),
     {
       fill: t.colors.body,
       fontFamily: SANS_FONT,
@@ -1599,6 +1481,7 @@ function renderManifestoPreview(
     let activeTitle: SVGTextElement | null = null;
     let activeDetail: SVGTextElement | null = null;
     let outsideListener: ((e: MouseEvent) => void) | null = null;
+    let reanchor: (() => void) | null = null;
 
     const dismissEmbed = (): void => {
       if (activeOverlay) {
@@ -1617,7 +1500,14 @@ function renderManifestoPreview(
         document.removeEventListener("pointerdown", outsideListener, true);
         outsideListener = null;
       }
+      if (reanchor) {
+        window.removeEventListener("resize", reanchor);
+        window.removeEventListener("scroll", reanchor, true);
+        reanchor = null;
+      }
     };
+
+    cleanups.push(dismissEmbed);
 
     items.forEach((item) => {
       let titleNode: SVGTextElement;
@@ -1640,7 +1530,7 @@ function renderManifestoPreview(
 
         const detailSpan = document.createElementNS(svgNs, "tspan");
         detailSpan.textContent = item.detail;
-        detailSpan.setAttribute("fill", t.colors.body);
+        detailSpan.setAttribute("fill", t.colors.detail);
         detailSpan.setAttribute("font-style", "italic");
         combined.append(detailSpan);
 
@@ -1697,22 +1587,25 @@ function renderManifestoPreview(
             activeTitle = titleNode;
             activeDetail = detailNode;
 
-            const svgRect = svg.getBoundingClientRect();
-            const vb = svg.viewBox.baseVal;
-            const scaleX = svgRect.width / vb.width;
-            const scaleY = svgRect.height / vb.height;
-
             const overlay = document.createElement("div");
             overlay.setAttribute("data-spotify-overlay", "");
             overlay.style.cssText = `
               position: fixed;
-              left: ${svgRect.left + x * scaleX}px;
-              top: ${svgRect.top + embedAnchorY * scaleY - 2}px;
-              width: ${layout.width * scaleX}px;
-              height: ${embedHeight}px;
               z-index: 10;
               pointer-events: auto;
+              height: ${embedHeight}px;
             `;
+
+            const positionOverlay = (): void => {
+              const r = svg.getBoundingClientRect();
+              const vb = svg.viewBox.baseVal;
+              const sX = r.width / vb.width;
+              const sY = r.height / vb.height;
+              overlay.style.left = `${r.left + x * sX}px`;
+              overlay.style.top = `${r.top + embedAnchorY * sY - 2}px`;
+              overlay.style.width = `${layout.width * sX}px`;
+            };
+            positionOverlay();
 
             const iframe = document.createElement("iframe");
             iframe.src = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0`;
@@ -1727,6 +1620,10 @@ function renderManifestoPreview(
             overlay.append(iframe);
             document.body.append(overlay);
             activeOverlay = overlay;
+
+            reanchor = positionOverlay;
+            window.addEventListener("resize", reanchor);
+            window.addEventListener("scroll", reanchor, true);
 
             outsideListener = (ev: MouseEvent) => {
               if (overlay.contains(ev.target as Node)) return;
@@ -1855,7 +1752,10 @@ function renderManifestoPreview(
     maxBottom = Math.max(maxBottom, imgY + imgSize);
   });
 
-  return Math.max(maxBottom, cursorY);
+  return {
+    bottom: Math.max(maxBottom, cursorY),
+    cleanup: () => cleanups.forEach((fn) => fn()),
+  };
 }
 
 // main render, builds full svg each frame
@@ -1872,41 +1772,34 @@ function render(
   validateConstraints(spec, geometry, bounds);
 
   const frame = deriveLayoutFrame(spec, getViewport(svg), bounds, geometry);
-  const strokeWidth = clamp(frame.scale * 1.2, 1, 1.6);
+  const strokeWidth = clamp(frame.scale * 1.4, 1.25, 1.8);
   const headerHeightEarly = geometry.header.height * frame.scale;
   const infoLayout = deriveInfoLayout(frame, bounds, geometry, headerHeightEarly, spec, state.page);
   svg.replaceChildren();
   document.querySelectorAll("[data-spotify-overlay]").forEach((el) => el.remove());
 
   const defs = createSvgElement("defs", {});
-  const thinkingBlur = createSvgElement("filter", {
-    id: "thinking-soften",
-    x: "-20%",
-    y: "-20%",
-    width: "140%",
-    height: "140%",
-  });
-  thinkingBlur.append(
-    createSvgElement("feGaussianBlur", {
-      stdDeviation: 0.8,
-    }),
-  );
-  defs.append(thinkingBlur);
 
   const isStacked = infoLayout.stacked;
   const isCompact = infoLayout.compact;
   const headerHeight = geometry.header.height * frame.scale;
   const desktopHeaderWidth = geometry.header.width * frame.scale;
-  const headerWidth = isStacked ? frame.viewport.width * 0.5 : desktopHeaderWidth;
-  const headerSectionWidth = isStacked ? frame.viewport.width * 0.25 : headerWidth / 2;
+  const isVeryNarrow = frame.viewport.width <= 360;
+  const titleText = isVeryNarrow ? "ETHAN" : spec.text.title;
+  const stackedNameRatio = isVeryNarrow ? 0.42 : 0.5;
+  const headerWidth = isStacked ? frame.viewport.width * stackedNameRatio : desktopHeaderWidth;
+  const headerSectionWidth = isStacked
+    ? (frame.viewport.width - headerWidth) / 2
+    : headerWidth / 2;
   const headerLabelPadXRatio = geometry.titlePos.x / geometry.header.width;
+  const headerLabelLeftPad = headerWidth * headerLabelPadXRatio;
   const headerLabelXOffset = headerSectionWidth * headerLabelPadXRatio;
   const headerLabelY = headerHeight / 2 + spec.text.headerTextOffsetY * frame.scale;
   const headerLabelSize = isStacked
     ? clamp(
-        frame.viewport.width * (isCompact ? 0.062 : 0.05),
-        24,
-        isCompact ? 34 : 40,
+        frame.viewport.width * (isCompact ? 0.058 : 0.05),
+        20,
+        isCompact ? 30 : 40,
       )
     : spec.text.titleSize * frame.scale;
   const headerFill = spec.colors.title;
@@ -1928,9 +1821,9 @@ function render(
   }> = [
     {
       key: "name",
-      label: spec.text.title,
+      label: titleText,
       box: { x: 0, y: 0, width: headerWidth, height: headerHeight },
-      labelX: geometry.titlePos.x * frame.scale,
+      labelX: isStacked ? headerLabelLeftPad : geometry.titlePos.x * frame.scale,
       labelY: headerLabelY,
       baseFill: state.page === "home" ? activeNameFill : nameIdleFill,
     },
@@ -1962,6 +1855,12 @@ function render(
     },
   ];
 
+  const headerLabels: Record<HeaderBoxKey, string> = {
+    name: "Home",
+    work: "Work",
+    talk: "More",
+  };
+
   headerSpecs.forEach(({ key, label, box, labelX, labelY, baseFill }) => {
     const clipId = `header-box-${key}-clip`;
     const clipRect = createSvgElement("rect", {
@@ -1986,6 +1885,7 @@ function render(
       opacity: 0,
     });
 
+    const titleLetterSpacing = key === "name" ? -headerLabelSize * 0.012 : 0;
     const baseText = createSvgElement("text", {
       x: labelX,
       y: labelY,
@@ -1993,6 +1893,7 @@ function render(
       "font-family": "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
       "font-size": headerLabelSize,
       "font-weight": 700,
+      "letter-spacing": titleLetterSpacing,
       "dominant-baseline": "middle",
       stroke: "none",
     });
@@ -2005,6 +1906,7 @@ function render(
       "font-family": "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
       "font-size": headerLabelSize,
       "font-weight": 700,
+      "letter-spacing": titleLetterSpacing,
       "dominant-baseline": "middle",
       stroke: "none",
       "clip-path": `url(#${clipId})`,
@@ -2023,6 +1925,7 @@ function render(
       "vector-effect": "non-scaling-stroke",
     });
 
+    const isActiveHeader = headerKeyToPage(key) === state.page;
     const hit = createSvgElement("rect", {
       x: box.x,
       y: box.y,
@@ -2031,7 +1934,13 @@ function render(
       fill: spec.colors.background,
       "fill-opacity": 0,
       "pointer-events": "all",
+      role: "button",
+      tabindex: 0,
+      "aria-label": `Go to ${headerLabels[key]}`,
     });
+    if (isActiveHeader) {
+      hit.setAttribute("aria-current", "page");
+    }
     hit.style.cursor = "pointer";
 
     boxGroup.append(fill, baseText, revealText, border, hit);
@@ -2137,7 +2046,11 @@ function render(
     href: "https://armada.build/",
     target: "_blank",
     rel: "noreferrer noopener",
+    "aria-label": "Armada — open project site (opens in new tab)",
   });
+  const diamondTitle = createSvgElement("title", {});
+  diamondTitle.textContent = "Armada — armada.build";
+  diamondLink.append(diamondTitle);
   const diamondGroup = createSvgElement("g", {});
   const diamond = createSvgElement("polygon", {
     points: diamondPoints,
@@ -2158,130 +2071,20 @@ function render(
   diamondGroup.append(diamond, diamondHit);
   diamondLink.append(diamondGroup);
 
-  const signalLink = createSvgElement("a", {
-    href: "https://cornellclaude.club/",
-    target: "_blank",
-    rel: "noreferrer noopener",
-  });
-  const signalGroup = createSvgElement("g", {});
-  const thinkingWidth = estimateTextWidth(spec.text.thinking, spec.text.thinkingSize);
-  const signalBounds: Rect = {
-    x: Math.min(
-      geometry.circleCenter.x - geometry.circleRadius * 1.7,
-      geometry.thinkingPos.x - spec.text.thinkingSize * 0.2,
-    ),
-    y: geometry.circleCenter.y - geometry.circleRadius * 1.7,
-    width:
-      geometry.thinkingPos.x +
-      thinkingWidth -
-      Math.min(
-        geometry.circleCenter.x - geometry.circleRadius * 1.7,
-        geometry.thinkingPos.x - spec.text.thinkingSize * 0.2,
-      ),
-    height:
-      geometry.thinkingPos.y +
-      spec.text.thinkingSize * 0.7 -
-      (geometry.circleCenter.y - geometry.circleRadius * 1.7),
-  };
+  contentGroup.append(structureGroup, boatGroup, diamondLink);
 
-  const halo = createSvgElement("circle", {
-    cx: geometry.circleCenter.x,
-    cy: geometry.circleCenter.y,
-    r: geometry.circleRadius * 1.08,
-    fill: "none",
-    stroke: spec.colors.circle,
-    "stroke-width": 2,
-    opacity: 0,
-    "vector-effect": "non-scaling-stroke",
-  });
-
-  const circle = createSvgElement("circle", {
-    cx: geometry.circleCenter.x,
-    cy: geometry.circleCenter.y,
-    r: geometry.circleRadius,
-    fill: spec.colors.circle,
-  });
-
-  const thinkingSoft = createSvgElement("text", {
-    x: geometry.thinkingPos.x,
-    y: geometry.thinkingPos.y,
-    fill: spec.colors.thinking,
-    opacity: 0.78,
-    filter: "url(#thinking-soften)",
-    "font-family": "'Cormorant Garamond', Georgia, serif",
-    "font-size": spec.text.thinkingSize,
-    "font-weight": 500,
-    "letter-spacing": 1,
-  });
-  thinkingSoft.textContent = spec.text.thinking;
-
-  const thinkingCrisp = createSvgElement("text", {
-    x: geometry.thinkingPos.x,
-    y: geometry.thinkingPos.y,
-    fill: mixColor(spec.colors.thinking, spec.colors.title, 0.12),
-    opacity: 0.18,
-    "font-family": "'Cormorant Garamond', Georgia, serif",
-    "font-size": spec.text.thinkingSize,
-    "font-weight": 500,
-    "letter-spacing": 0.35,
-  });
-  thinkingCrisp.textContent = spec.text.thinking;
-
-  const signalHit = createSvgElement("rect", {
-    x: signalBounds.x,
-    y: signalBounds.y,
-    width: signalBounds.width,
-    height: signalBounds.height,
-    fill: spec.colors.background,
-    "fill-opacity": 0,
-    "pointer-events": "all",
-  });
-
-  signalHit.style.cursor = "pointer";
-  signalGroup.append(halo, circle, thinkingSoft, thinkingCrisp, signalHit);
-  signalLink.append(signalGroup);
-
-  const terminalGroup = createSvgElement("g", {});
-  const panel = createSvgElement("rect", {
-    x: geometry.panel.x,
-    y: geometry.panel.y,
-    width: geometry.panel.width,
-    height: geometry.panel.height,
-    fill: spec.colors.panel,
-    "shape-rendering": "crispEdges",
-  });
-
-  const cursor = createSvgElement("text", {
-    x: geometry.cursorPos.x,
-    y: geometry.cursorPos.y,
-    fill: spec.colors.cursor,
-    "font-family": "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-    "font-size": spec.text.cursorSize,
-    "font-weight": 400,
-    "dominant-baseline": "hanging",
-  });
-  cursor.textContent = spec.text.cursor;
-
-  const terminalHit = createSvgElement("rect", {
-    x: geometry.panel.x,
-    y: geometry.panel.y,
-    width: geometry.panel.width,
-    height: geometry.panel.height,
-    fill: spec.colors.background,
-    "fill-opacity": 0,
-    "pointer-events": "all",
-  });
-
-  terminalGroup.append(panel, cursor, terminalHit);
-
-  contentGroup.append(structureGroup, boatGroup, diamondLink, signalLink, terminalGroup);
+  // The full composition reads as wallpaper-clutter on stacked layouts where
+  // it sits behind the centered text (worst at tablet portrait), so on stacked
+  // we hide it and let a small mobile motif anchor the brand instead.
+  const portraitish = frame.viewport.height >= frame.viewport.width * 1.05;
+  const hideFullComposition = isStacked && (isCompact || portraitish);
 
   if (isStacked) {
-    contentGroup.setAttribute("opacity", isCompact ? "0" : "0.14");
+    contentGroup.setAttribute("opacity", hideFullComposition ? "0" : "0.14");
     contentGroup.style.pointerEvents = "none";
   }
 
-  const infoBottom = renderManifestoPreview(
+  const previewResult = renderManifestoPreview(
     infoGroup,
     infoLayout,
     state,
@@ -2289,6 +2092,7 @@ function render(
     onEmailCopy,
     onWorkSectionToggle,
   );
+  const infoBottom = previewResult.bottom;
   const bottomPad = clamp(frame.viewport.height * 0.08, 28, 56);
   const surfaceHeight = infoLayout.stacked
     ? Math.max(frame.viewport.height, Math.ceil(infoBottom + bottomPad))
@@ -2319,8 +2123,41 @@ function render(
     fill: spec.colors.background,
   });
 
-  if (isCompact) {
-    svg.append(defs, background, headerBoxes, headerOutline, infoGroup);
+  // small mobile motif so the De Stijl identity is still visible on compact
+  // viewports where the full composition is hidden.
+  const mobileMotif = createSvgElement("g", {});
+  if (hideFullComposition) {
+    const motifSize = clamp(frame.viewport.width * 0.18, 56, 96);
+    const motifX = frame.viewport.width - motifSize - clamp(frame.viewport.width * 0.06, 16, 28);
+    const motifY = surfaceHeight - motifSize - clamp(frame.viewport.height * 0.04, 24, 48);
+    const cx = motifX + motifSize / 2;
+    const cy = motifY + motifSize / 2;
+    const halfDiag = motifSize * 0.36;
+    mobileMotif.append(
+      createSvgElement("polygon", {
+        points: [
+          `${cx},${cy - halfDiag}`,
+          `${cx + halfDiag},${cy}`,
+          `${cx},${cy + halfDiag}`,
+          `${cx - halfDiag},${cy}`,
+        ].join(" "),
+        fill: spec.colors.diamond,
+        opacity: 0.85,
+      }),
+      createSvgElement("line", {
+        x1: motifX - motifSize * 0.4,
+        y1: motifY + motifSize + motifSize * 0.4,
+        x2: motifX + motifSize * 1.1,
+        y2: motifY - motifSize * 0.1,
+        stroke: spec.colors.line,
+        "stroke-width": 1,
+        "vector-effect": "non-scaling-stroke",
+      }),
+    );
+  }
+
+  if (isCompact || hideFullComposition) {
+    svg.append(defs, background, mobileMotif, headerBoxes, headerOutline, infoGroup);
   } else {
     svg.append(defs, background, headerBoxes, headerOutline, contentGroup, infoGroup);
   }
@@ -2341,18 +2178,7 @@ function render(
       group: diamondGroup,
       hit: diamondHit,
     },
-    signal: {
-      hit: signalHit,
-      halo,
-      thinkingSoft,
-      thinkingCrisp,
-      baseRadius: geometry.circleRadius,
-    },
-    terminal: {
-      hit: terminalHit,
-      panel,
-      cursor,
-    },
+    previewCleanup: previewResult.cleanup,
   };
 }
 
@@ -2361,9 +2187,11 @@ function render(
 function setupHeaderBoxInteraction(
   refs: HeaderBoxRefs,
   reducedMotion: boolean,
+  isActive: boolean,
   onActivate: () => void,
 ): () => void {
-  let progress = 0;
+  const restingTarget = 0;
+  let progress = restingTarget;
   let moveCancel: (() => void) | null = null;
   let pulseCancel: (() => void) | null = null;
 
@@ -2429,7 +2257,7 @@ function setupHeaderBoxInteraction(
   };
 
   const handleLeave = (): void => {
-    animateTo(0);
+    animateTo(restingTarget);
     pulseCancel?.();
     pulseCancel = null;
     refs.border.setAttribute("opacity", "0");
@@ -2439,9 +2267,17 @@ function setupHeaderBoxInteraction(
     onActivate();
   };
 
+  const handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onActivate();
+    }
+  };
+
   refs.hit.addEventListener("pointerenter", handleEnter);
   refs.hit.addEventListener("pointerleave", handleLeave);
   refs.hit.addEventListener("click", handleClick);
+  refs.hit.addEventListener("keydown", handleKeyDown);
   apply();
 
   return () => {
@@ -2450,6 +2286,7 @@ function setupHeaderBoxInteraction(
     refs.hit.removeEventListener("pointerenter", handleEnter);
     refs.hit.removeEventListener("pointerleave", handleLeave);
     refs.hit.removeEventListener("click", handleClick);
+    refs.hit.removeEventListener("keydown", handleKeyDown);
   };
 }
 
@@ -2618,108 +2455,6 @@ function setupBoatInteraction(refs: BoatRefs, reducedMotion: boolean): () => voi
   };
 }
 
-function setupSignalInteraction(
-  refs: SignalRefs,
-  spec: CompositionSpec,
-  reducedMotion: boolean,
-): () => void {
-  let crisp = 0;
-  let crispCancel: (() => void) | null = null;
-  let pulseCancel: (() => void) | null = null;
-  const crispFill = mixColor(spec.colors.thinking, spec.colors.title, 0.24);
-
-  const apply = (): void => {
-    refs.thinkingSoft.setAttribute("opacity", (0.78 - crisp * 0.58).toFixed(3));
-    refs.thinkingSoft.setAttribute("letter-spacing", (1 - crisp * 0.85).toFixed(2));
-    refs.thinkingCrisp.setAttribute("opacity", (0.18 + crisp * 0.82).toFixed(3));
-    refs.thinkingCrisp.setAttribute("letter-spacing", (0.35 * (1 - crisp)).toFixed(2));
-    refs.thinkingCrisp.setAttribute("fill", interpolateColor(spec.colors.thinking, crispFill, crisp));
-  };
-
-  const animateTo = (target: number): void => {
-    crispCancel?.();
-
-    if (reducedMotion) {
-      crisp = target;
-      apply();
-      return;
-    }
-
-    const from = crisp;
-    crispCancel = animate({
-      duration: target > from ? 260 : 180,
-      from,
-      to: target,
-      easing: easeInOutCubic,
-      onUpdate: (value: number) => {
-        crisp = value;
-        apply();
-      },
-      onComplete: () => {
-        crispCancel = null;
-      },
-    });
-  };
-
-  const triggerPulse = (): void => {
-    pulseCancel?.();
-
-    if (reducedMotion) {
-      refs.halo.setAttribute("opacity", "0.16");
-      return;
-    }
-
-    pulseCancel = animate({
-      duration: 420,
-      from: 0,
-      to: 1,
-      easing: easeOutCubic,
-      onUpdate: (_value: number, raw: number) => {
-        refs.halo.setAttribute("r", (refs.baseRadius * (1.08 + raw * 0.82)).toFixed(2));
-        refs.halo.setAttribute("opacity", (0.3 * (1 - raw)).toFixed(3));
-        refs.halo.setAttribute("stroke-width", (1.8 + raw * 1.4).toFixed(2));
-      },
-      onComplete: () => {
-        refs.halo.setAttribute("r", (refs.baseRadius * 1.08).toFixed(2));
-        refs.halo.setAttribute("opacity", "0");
-        refs.halo.setAttribute("stroke-width", "2");
-        pulseCancel = null;
-      },
-    });
-  };
-
-  const handleEnter = (): void => {
-    animateTo(1);
-    triggerPulse();
-  };
-
-  const handleLeave = (): void => {
-    animateTo(0);
-    pulseCancel?.();
-    pulseCancel = null;
-    refs.halo.setAttribute("opacity", "0");
-    refs.halo.setAttribute("r", (refs.baseRadius * 1.08).toFixed(2));
-    refs.halo.setAttribute("stroke-width", "2");
-  };
-
-  refs.hit.addEventListener("pointerenter", handleEnter);
-  refs.hit.addEventListener("pointerleave", handleLeave);
-  apply();
-
-  return () => {
-    crispCancel?.();
-    pulseCancel?.();
-    refs.hit.removeEventListener("pointerenter", handleEnter);
-    refs.hit.removeEventListener("pointerleave", handleLeave);
-    refs.halo.setAttribute("opacity", "0");
-  };
-}
-
-function randomGhostCharacter(): string {
-  const glyphs = ["/", "_", ":", "~", "="];
-  return glyphs[Math.floor(Math.random() * glyphs.length)];
-}
-
 // clipboard
 
 async function copyTextToClipboard(text: string): Promise<void> {
@@ -2787,117 +2522,21 @@ function ensureAnnouncer(id: string): HTMLElement {
   return node;
 }
 
-function setupTerminalInteraction(
-  refs: TerminalRefs,
-  spec: CompositionSpec,
-  reducedMotion: boolean,
-): () => void {
-  let active = 0;
-  let stateCancel: (() => void) | null = null;
-  let typingCancel: (() => void) | null = null;
-  const activeFill = mixColor(spec.colors.panel, spec.colors.title, 0.18);
-  const activeCursor = mixColor(spec.colors.cursor, spec.colors.background, 0.88);
-
-  const apply = (): void => {
-    refs.panel.setAttribute("fill", interpolateColor(spec.colors.panel, activeFill, active));
-    refs.cursor.setAttribute("fill", interpolateColor(spec.colors.cursor, activeCursor, active));
-  };
-
-  const animateTo = (target: number): void => {
-    stateCancel?.();
-
-    if (reducedMotion) {
-      active = target;
-      apply();
-      return;
-    }
-
-    const from = active;
-    stateCancel = animate({
-      duration: target > from ? 240 : 180,
-      from,
-      to: target,
-      easing: easeInOutCubic,
-      onUpdate: (value: number) => {
-        active = value;
-        apply();
-      },
-      onComplete: () => {
-        stateCancel = null;
-      },
-    });
-  };
-
-  const triggerTyping = (): void => {
-    typingCancel?.();
-
-    if (reducedMotion) {
-      refs.cursor.textContent = spec.text.cursor;
-      return;
-    }
-
-    const firstGhost = randomGhostCharacter();
-    const secondGhost = randomGhostCharacter();
-    const frames = [
-      spec.text.cursor,
-      `..${firstGhost}|`,
-      `.${firstGhost}${secondGhost}|`,
-      spec.text.cursor,
-    ] as const;
-
-    typingCancel = runStepSequence(
-      frames,
-      88,
-      (frame) => {
-        refs.cursor.textContent = frame;
-      },
-      () => {
-        refs.cursor.textContent = spec.text.cursor;
-        typingCancel = null;
-      },
-    );
-  };
-
-  const handleEnter = (): void => {
-    animateTo(1);
-    triggerTyping();
-  };
-
-  const handleLeave = (): void => {
-    animateTo(0);
-    typingCancel?.();
-    typingCancel = null;
-    refs.cursor.textContent = spec.text.cursor;
-  };
-
-  refs.hit.addEventListener("pointerenter", handleEnter);
-  refs.hit.addEventListener("pointerleave", handleLeave);
-  apply();
-
-  return () => {
-    stateCancel?.();
-    typingCancel?.();
-    refs.hit.removeEventListener("pointerenter", handleEnter);
-    refs.hit.removeEventListener("pointerleave", handleLeave);
-    refs.cursor.textContent = spec.text.cursor;
-  };
-}
-
 function setupInteractions(
   refs: InteractionRefs,
   spec: CompositionSpec,
   reducedMotion: boolean,
+  currentPage: PageKey,
   setState: (patch: Partial<AppState>) => void,
 ): () => void {
   const cleanups = [
     ...refs.headerBoxes.map((box) =>
-      setupHeaderBoxInteraction(box, reducedMotion, () => {
+      setupHeaderBoxInteraction(box, reducedMotion, headerKeyToPage(box.key) === currentPage, () => {
         setState({ page: headerKeyToPage(box.key) });
       }),
     ),
     setupDiamondInteraction(refs.diamond, reducedMotion),
-    setupSignalInteraction(refs.signal, spec, reducedMotion),
-    setupTerminalInteraction(refs.terminal, spec, reducedMotion),
+    refs.previewCleanup,
   ];
 
   return () => {
@@ -2925,16 +2564,26 @@ function mount(spec: CompositionSpec): void {
   let feedbackTimeoutId: number | null = null;
   let state: AppState = { ...INITIAL_STATE };
 
+  const pageTitles: Record<PageKey, string> = {
+    home: "Ethan Yang — builder & writer at Cornell",
+    work: "Ethan Yang · Work",
+    talk: "Ethan Yang · More",
+  };
+
   const setState = (patch: Partial<AppState>): void => {
     const nextState = { ...state, ...patch };
+    const pageChanged = nextState.page !== state.page;
     const changed =
-      nextState.page !== state.page || nextState.emailFeedback !== state.emailFeedback || nextState.workSection !== state.workSection;
+      pageChanged || nextState.emailFeedback !== state.emailFeedback || nextState.workSection !== state.workSection;
 
     if (!changed) {
       return;
     }
 
     state = nextState;
+    if (pageChanged) {
+      document.title = pageTitles[nextState.page];
+    }
     scheduleRender();
   };
 
@@ -2987,6 +2636,7 @@ function mount(spec: CompositionSpec): void {
       }),
       spec,
       Boolean(reducedMotionQuery?.matches),
+      state.page,
       setState,
     );
   };
