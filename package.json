@@ -1,16 +1,20 @@
 {
   "name": "eyanghq",
-  "private": true,
   "type": "module",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "dev": "node scripts/dev-server.mjs --watch",
-    "generate:favicon": "node scripts/generate-favicon.mjs",
-    "build": "tsc -p tsconfig.json",
-    "build:watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
-    "check": "tsc -p tsconfig.json --noEmit",
-    "serve": "node scripts/dev-server.mjs"
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
   },
-  "devDependencies": {
-    "typescript": "^5.9.2"
+  "dependencies": {
+    "astro": "^4.16.18",
+    "@astrojs/tailwind": "^5.1.4",
+    "tailwindcss": "^3.4.17",
+    "@fontsource/space-grotesk": "^5.1.0",
+    "@fontsource/rubik": "^5.1.0"
   }
 }

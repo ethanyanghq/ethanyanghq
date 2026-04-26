@@ -1,0 +1,294 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+
+const favoriteArtist = {
+  name: "Theo van Doesburg",
+  href: "https://www.moma.org/artists/6076-theo-van-doesburg",
+};
+
+const favoriteMusic = [
+  {
+    title: "Homage",
+    artist: "Mild High Club",
+    href: "https://open.spotify.com/track/7DcJ6fEBb7BaKuYKTwiDxK",
+  },
+  {
+    title: "Kashmir",
+    artist: "Led Zeppelin",
+    href: "https://open.spotify.com/track/5v2vkoTamoisazJFanHJjk",
+  },
+  {
+    title: "Ballade No. 1 in G Minor",
+    artist: "Chopin",
+    href: "https://open.spotify.com/track/5Ks5ENUFNQDfaqxjZnCkVJ",
+  },
+];
+
+const favoriteBooks = [
+  { title: "The Road to Serfdom", author: "Hayek" },
+  { title: "On Liberty", author: "Mill" },
+  { title: "Team of Rivals", author: "Goodwin" },
+];
+---
+
+<SiteLayout title="About / Ethan Yang">
+  <article class="about-page">
+    {/* TODO: replace placeholder hero copy with real bio */}
+    <header class="about-hero">
+      <p class="about-kicker">About</p>
+      <h1 class="about-title">Short thesis placeholder.</h1>
+      <div class="about-copy">
+        <p>
+          This section will become a concise personal bio about Ethan: what he is studying,
+          what kind of work he is drawn to, and the questions that seem to keep returning.
+        </p>
+        <p>
+          It should probably stay brief. Enough to explain the through-line, not enough to
+          turn into a résumé.
+        </p>
+      </div>
+    </header>
+
+    <section class="about-notes" aria-labelledby="about-notes-heading">
+      <div class="notes-heading">
+        <p class="about-kicker">Notes</p>
+        <h2 id="about-notes-heading">A few things I like.</h2>
+      </div>
+
+      <div class="notes-stack">
+        <div class="notes-section">
+          <h3>Artist</h3>
+          <a
+            class="notes-link"
+            href={favoriteArtist.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {favoriteArtist.name}<span class="ext-mark" aria-hidden="true"> ↗</span>
+          </a>
+          <figure class="artist-figure">
+            <img
+              src="/img/composition.webp"
+              alt="Composition décentralisée by Theo van Doesburg, 1924"
+              loading="lazy"
+            />
+            <figcaption>Theo van Doesburg, <em>Composition décentralisée</em>, 1924</figcaption>
+          </figure>
+        </div>
+
+        <div class="notes-section">
+          <h3>Music</h3>
+          <ul class="notes-list">
+            {
+              favoriteMusic.map((item) => (
+                <li>
+                  <a href={item.href} target="_blank" rel="noopener noreferrer">
+                    <span>
+                      {item.title}
+                      <span class="ext-mark" aria-hidden="true"> ↗</span>
+                    </span>
+                    <span>{item.artist}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <div class="notes-section">
+          <h3>Books</h3>
+          <ul class="notes-list">
+            {
+              favoriteBooks.map((item) => (
+                <li>
+                  <span>{item.title}</span>
+                  <span>{item.author}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+    </section>
+  </article>
+</SiteLayout>
+
+<style>
+  .about-page {
+    width: min(36rem, 100%);
+    padding: 44px 72px 80px;
+  }
+
+  .about-kicker,
+  .notes-section h3 {
+    margin: 0;
+    font-family: theme("fontFamily.sans");
+    font-size: 0.75rem;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: theme("colors.ink");
+    opacity: 0.58;
+  }
+
+  .about-title {
+    margin: 18px 0 0;
+    font-family: theme("fontFamily.display");
+    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+    line-height: 1.02;
+    color: theme("colors.ink");
+  }
+
+  .about-copy {
+    margin-top: 24px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .about-copy p {
+    margin: 0;
+    font-family: theme("fontFamily.sans");
+    font-size: 1rem;
+    line-height: 1.7;
+    color: theme("colors.ink");
+    opacity: 0.82;
+  }
+
+  .about-notes {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid theme("colors.rule");
+  }
+
+  .notes-heading h2 {
+    margin: 14px 0 0;
+    font-family: theme("fontFamily.display");
+    font-size: 1.55rem;
+    line-height: 1.15;
+    color: theme("colors.ink");
+  }
+
+  .notes-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    margin-top: 32px;
+  }
+
+  .notes-link {
+    display: inline-block;
+    margin-top: 12px;
+    font-family: theme("fontFamily.sans");
+    font-size: 1rem;
+    line-height: 1.6;
+    color: theme("colors.ink");
+    text-decoration: none;
+  }
+
+  .notes-link:hover,
+  .notes-list a:hover {
+    opacity: 0.68;
+  }
+
+  .ext-mark {
+    opacity: 0.65;
+    font-size: 0.85em;
+  }
+
+  .artist-figure {
+    margin: 14px 0 0;
+  }
+
+  .artist-figure img {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+  }
+
+  .artist-figure figcaption {
+    margin-top: 10px;
+    font-family: theme("fontFamily.sans");
+    font-size: 0.75rem;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    color: theme("colors.ink");
+    opacity: 0.6;
+  }
+
+  .artist-figure figcaption em {
+    font-style: italic;
+  }
+
+  .notes-list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+  }
+
+  .notes-list a,
+  .notes-list li:not(:has(a)) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 16px;
+    align-items: baseline;
+    padding: 6px 0;
+    color: theme("colors.ink");
+  }
+
+  .notes-list a {
+    text-decoration: none;
+  }
+
+  .notes-list span:first-child {
+    font-family: theme("fontFamily.sans");
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .notes-list span:last-child {
+    font-family: theme("fontFamily.sans");
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: rgb(58 53 48 / 0.72);
+  }
+
+  @media (max-width: 1023px) {
+    .about-page {
+      padding-right: 56px;
+      padding-left: 56px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .about-page {
+      padding: 32px 32px 64px;
+    }
+
+    .about-title {
+      font-size: clamp(1.7rem, 9vw, 2.25rem);
+    }
+
+    .about-notes {
+      margin-top: 44px;
+    }
+
+    .notes-heading h2 {
+      font-size: 1.35rem;
+    }
+
+    .notes-list a,
+    .notes-list li:not(:has(a)) {
+      grid-template-columns: 1fr;
+      gap: 2px;
+    }
+  }
+
+  @media (max-width: 374px) {
+    .about-page {
+      padding-right: 24px;
+      padding-left: 24px;
+    }
+  }
+</style>

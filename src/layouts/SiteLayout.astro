@@ -1,0 +1,80 @@
+---
+import "@fontsource/space-grotesk/700.css";
+import "@fontsource/rubik/400.css";
+import "@fontsource/rubik/500.css";
+import "../styles/global.css";
+import { ViewTransitions } from "astro:transitions";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+
+const navLinks = [
+  { href: "/writing", label: "WRITING" },
+  { href: "/building", label: "BUILDING" },
+  { href: "/about", label: "ABOUT" },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <title>{title}</title>
+    <ViewTransitions />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" transition:persist="sidebar">
+        <a href="/" class="masthead" aria-label="Go to home">
+          <span class="masthead-fill" aria-hidden="true"></span>
+          <span class="masthead-text">ETHAN YANG</span>
+          <span class="masthead-text masthead-text--invert" aria-hidden="true">ETHAN YANG</span>
+        </a>
+
+        <div class="sidebar-body">
+          <div class="sidebar-intro">
+            <h1 class="intro-heading">Hello. I&rsquo;m Ethan.</h1>
+            <p class="intro-paragraph">
+              Currently studying systems and institutions at scale: how they're designed, how they fail, and how AI is remaking them.
+            </p>
+          </div>
+
+          <nav class="sidebar-nav" aria-label="Primary">
+            {
+              navLinks.map((link) => (
+                <a
+                  href={link.href}
+                  aria-current={path === link.href ? "page" : undefined}
+                >
+                  {link.label}
+                </a>
+              ))
+            }
+          </nav>
+        </div>
+
+        <footer class="sidebar-footer">
+          <a href="mailto:ethanyanghq@gmail.com">email</a>
+          <span class="sep">/</span>
+          <a href="https://www.linkedin.com/in/eycyang/" target="_blank" rel="noopener noreferrer">linkedin</a>
+          <span class="sep">/</span>
+          <a href="https://substack.com/@ethanycyang" target="_blank" rel="noopener noreferrer">substack</a>
+          <span class="sep">/</span>
+          <a href="https://github.com/ethanyanghq" target="_blank" rel="noopener noreferrer">github</a>
+        </footer>
+      </aside>
+
+      <main class="right-pane">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

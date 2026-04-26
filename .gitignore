@@ -3,9 +3,11 @@ node_modules/
 
 # build output
 dist/
+.astro/
 
 # local tooling
 .claude/
 
 # macOS Finder metadata
 .DS_Store
+.gstack/
