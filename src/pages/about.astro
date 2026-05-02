@@ -33,81 +33,84 @@ const favoriteBooks = [
 
 <SiteLayout title="About / Ethan Yang">
   <article class="about-page">
-    {/* TODO: replace placeholder hero copy with real bio */}
-    <header class="about-hero">
-      <p class="about-kicker">About</p>
-      <h1 class="about-title">Short thesis placeholder.</h1>
-      <div class="about-copy">
-        <p>
-          This section will become a concise personal bio about Ethan: what he is studying,
-          what kind of work he is drawn to, and the questions that seem to keep returning.
-        </p>
-        <p>
-          It should probably stay brief. Enough to explain the through-line, not enough to
-          turn into a résumé.
-        </p>
+    <section class="band band--head" aria-labelledby="about-heading">
+      <div class="band-content">
+        <h1 id="about-heading">A few things I like.</h1>
       </div>
-    </header>
+    </section>
 
-    <section class="about-notes" aria-labelledby="about-notes-heading">
-      <div class="notes-heading">
-        <p class="about-kicker">Notes</p>
-        <h2 id="about-notes-heading">A few things I like.</h2>
+    <section class="band band--bio" aria-labelledby="band-bio">
+      <p class="band-label" id="band-bio">Bio</p>
+      <div class="band-content">
+        <div class="bio-text">
+          <p>
+            I study systems and institutions at scale: how they are designed,
+            how they fail, and how AI is remaking them.
+          </p>
+          <p>
+            I am drawn to work that turns messy public questions into clear
+            arguments, useful software, and institutions that can survive contact
+            with reality.
+          </p>
+        </div>
+        <div class="bio-artist">
+          <p class="band-label bio-artist-label">Art</p>
+          <div class="bio-artist-content">
+            <a
+              class="notes-link"
+              href={favoriteArtist.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {favoriteArtist.name}<span class="ext-mark" aria-hidden="true"> ↗</span>
+            </a>
+            <figure class="artist-figure">
+              <img
+                src="/img/composition.webp"
+                alt="Composition décentralisée by Theo van Doesburg, 1924"
+                loading="lazy"
+              />
+              <figcaption>Theo van Doesburg, <em>Composition décentralisée</em>, 1924</figcaption>
+            </figure>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="notes-stack">
-        <div class="notes-section">
-          <h3>Artist</h3>
-          <a
-            class="notes-link"
-            href={favoriteArtist.href}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {favoriteArtist.name}<span class="ext-mark" aria-hidden="true"> ↗</span>
-          </a>
-          <figure class="artist-figure">
-            <img
-              src="/img/composition.webp"
-              alt="Composition décentralisée by Theo van Doesburg, 1924"
-              loading="lazy"
-            />
-            <figcaption>Theo van Doesburg, <em>Composition décentralisée</em>, 1924</figcaption>
-          </figure>
-        </div>
+    <section class="band band--music" aria-labelledby="band-music">
+      <p class="band-label" id="band-music">Music</p>
+      <div class="band-content">
+        <ul class="notes-list">
+          {
+            favoriteMusic.map((item) => (
+              <li>
+                <a href={item.href} target="_blank" rel="noopener noreferrer">
+                  <span>
+                    {item.title}
+                    <span class="ext-mark" aria-hidden="true"> ↗</span>
+                  </span>
+                  <span>{item.artist}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
 
-        <div class="notes-section">
-          <h3>Music</h3>
-          <ul class="notes-list">
-            {
-              favoriteMusic.map((item) => (
-                <li>
-                  <a href={item.href} target="_blank" rel="noopener noreferrer">
-                    <span>
-                      {item.title}
-                      <span class="ext-mark" aria-hidden="true"> ↗</span>
-                    </span>
-                    <span>{item.artist}</span>
-                  </a>
-                </li>
-              ))
-            }
-          </ul>
-        </div>
-
-        <div class="notes-section">
-          <h3>Books</h3>
-          <ul class="notes-list">
-            {
-              favoriteBooks.map((item) => (
-                <li>
-                  <span>{item.title}</span>
-                  <span>{item.author}</span>
-                </li>
-              ))
-            }
-          </ul>
-        </div>
+    <section class="band band--books" aria-labelledby="band-books">
+      <p class="band-label" id="band-books">Books</p>
+      <div class="band-content">
+        <ul class="notes-list">
+          {
+            favoriteBooks.map((item) => (
+              <li>
+                <span>{item.title}</span>
+                <span>{item.author}</span>
+              </li>
+            ))
+          }
+        </ul>
       </div>
     </section>
   </article>
@@ -115,12 +118,38 @@ const favoriteBooks = [
 
 <style>
   .about-page {
-    width: min(36rem, 100%);
-    padding: 44px 72px 80px;
+    --about-head-height: 7.5rem;
+
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  .about-kicker,
-  .notes-section h3 {
+  .band {
+    display: grid;
+    grid-template-columns: clamp(3.5rem, 6vw, 5rem) minmax(0, 1fr);
+    column-gap: clamp(1.25rem, 2vw, 1.75rem);
+    padding-block: clamp(1.75rem, 3.2vw, 2.75rem);
+    padding-inline: clamp(2rem, 4.5vw, 4rem);
+    align-items: baseline;
+    border-bottom: 1px solid theme("colors.rule");
+  }
+
+  .band--head {
+    min-height: var(--about-head-height);
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    padding-block: 0;
+  }
+
+  .band--head .band-content {
+    display: flex;
+    align-items: center;
+    min-height: calc(var(--about-head-height) - 1px);
+  }
+
+  .band-label {
     margin: 0;
     font-family: theme("fontFamily.sans");
     font-size: 0.75rem;
@@ -132,53 +161,25 @@ const favoriteBooks = [
     opacity: 0.58;
   }
 
-  .about-title {
-    margin: 18px 0 0;
-    font-family: theme("fontFamily.display");
-    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
-    line-height: 1.02;
-    color: theme("colors.ink");
+  .band-content {
+    min-width: 0;
   }
 
-  .about-copy {
-    margin-top: 24px;
-    display: grid;
-    gap: 14px;
+  .band-content > :first-child {
+    margin-top: 0;
   }
 
-  .about-copy p {
+  .band--head h1 {
     margin: 0;
     font-family: theme("fontFamily.sans");
-    font-size: 1rem;
-    line-height: 1.7;
+    font-weight: 500;
+    font-size: clamp(1.875rem, 2.4vw, 2.125rem);
+    line-height: 1.14;
     color: theme("colors.ink");
-    opacity: 0.82;
-  }
-
-  .about-notes {
-    margin-top: 56px;
-    padding-top: 24px;
-    border-top: 1px solid theme("colors.rule");
-  }
-
-  .notes-heading h2 {
-    margin: 14px 0 0;
-    font-family: theme("fontFamily.display");
-    font-size: 1.55rem;
-    line-height: 1.15;
-    color: theme("colors.ink");
-  }
-
-  .notes-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 40px;
-    margin-top: 32px;
   }
 
   .notes-link {
     display: inline-block;
-    margin-top: 12px;
     font-family: theme("fontFamily.sans");
     font-size: 1rem;
     line-height: 1.6;
@@ -196,14 +197,75 @@ const favoriteBooks = [
     font-size: 0.85em;
   }
 
+  /* Bio band: divider sits left of center to give the artist column room
+     for its own label + painting on a single horizontal row. */
+  .band--bio .band-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    column-gap: 0;
+    align-items: stretch;
+  }
+
+  .bio-text {
+    max-width: 65ch;
+    padding-right: clamp(1.5rem, 3vw, 2.5rem);
+    align-self: center;
+  }
+
+  .bio-text p {
+    margin: 0;
+    font-family: theme("fontFamily.sans");
+    font-size: 1rem;
+    line-height: 1.6;
+    color: theme("colors.ink");
+  }
+
+  .bio-text p + p {
+    margin-top: 1rem;
+  }
+
+  .bio-artist {
+    display: grid;
+    grid-template-columns: clamp(3.5rem, 6vw, 5rem) minmax(0, 1fr);
+    column-gap: clamp(1.25rem, 2vw, 1.75rem);
+    align-items: baseline;
+    min-width: 0;
+    border-left: 1px solid theme("colors.rule");
+    padding-left: clamp(1.25rem, 2vw, 1.75rem);
+    margin-block: calc(-1 * clamp(1.75rem, 3.2vw, 2.75rem));
+    padding-block: clamp(1.75rem, 3.2vw, 2.75rem);
+  }
+
+  .bio-artist-label {
+    margin: 0;
+  }
+
+  .bio-artist-content {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.9rem, 1.8vw, 1.5rem);
+    min-width: 0;
+  }
+
+  /* Painting and artist link cap at ~280px so the painting stays a focal
+     piece rather than scaling with the column. */
+  .bio-artist .notes-link,
+  .bio-artist .artist-figure {
+    width: 100%;
+    max-width: 17.5rem;
+  }
+
+  .bio-artist .notes-link {
+    display: block;
+  }
+
   .artist-figure {
-    margin: 14px 0 0;
+    margin: 0;
   }
 
   .artist-figure img {
     display: block;
     width: 100%;
-    max-width: 360px;
     height: auto;
   }
 
@@ -223,15 +285,24 @@ const favoriteBooks = [
 
   .notes-list {
     list-style: none;
-    margin: 10px 0 0;
+    margin: 0;
     padding: 0;
+    max-width: 34rem;
   }
 
+  .band--music,
+  .band--books {
+    padding-block: clamp(2rem, 3.6vw, 3rem);
+  }
+
+  /* Keep notes dense: title and metadata read as one measured line, not two
+     far-apart columns. */
   .notes-list a,
   .notes-list li:not(:has(a)) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content;
-    gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.65rem;
+    row-gap: 0.1rem;
     align-items: baseline;
     padding: 6px 0;
     color: theme("colors.ink");
@@ -254,41 +325,98 @@ const favoriteBooks = [
     color: rgb(58 53 48 / 0.72);
   }
 
-  @media (max-width: 1023px) {
-    .about-page {
-      padding-right: 56px;
-      padding-left: 56px;
+  .notes-list span:last-child::before {
+    content: "- ";
+    color: rgb(58 53 48 / 0.42);
+  }
+
+  .band--books .notes-list span:last-child {
+    font-style: italic;
+  }
+
+  /* Tablet & narrow desktop: 2-column bio gets too cramped. Collapse to a
+     single column with a horizontal rule replacing the vertical divider. */
+  @media (max-width: 1179px) {
+    .band--bio .band-content {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: clamp(1.5rem, 4vw, 2rem);
+    }
+
+    .bio-text {
+      max-width: none;
+      padding-right: 0;
+      padding-bottom: clamp(1.5rem, 4vw, 2rem);
+      align-self: stretch;
+    }
+
+    .bio-artist {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 0.75rem;
+      border-left: none;
+      border-top: 1px solid theme("colors.rule");
+      padding-left: 0;
+      padding-block: clamp(1.5rem, 4vw, 2rem) 0;
+      margin-block: 0;
+    }
+
+    .bio-artist .notes-link,
+    .bio-artist .artist-figure {
+      max-width: 34rem;
     }
   }
 
+  /* Mobile: bands collapse to a single column; notes-list stacks rows. */
   @media (max-width: 767px) {
-    .about-page {
-      padding: 32px 32px 64px;
+    .band {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 0.75rem;
+      padding-block: 1.5rem;
+      padding-inline: 2rem;
+      align-items: stretch;
     }
 
-    .about-title {
-      font-size: clamp(1.7rem, 9vw, 2.25rem);
+    .band--head {
+      min-height: auto;
+      padding-block: 2rem 1.5rem;
     }
 
-    .about-notes {
-      margin-top: 44px;
+    .band--head .band-content {
+      min-height: 0;
     }
 
-    .notes-heading h2 {
-      font-size: 1.35rem;
+    .band--head h1 {
+      font-size: 1.625rem;
+    }
+
+    .bio-artist .notes-link,
+    .bio-artist .artist-figure {
+      max-width: none;
     }
 
     .notes-list a,
     .notes-list li:not(:has(a)) {
+      display: grid;
       grid-template-columns: 1fr;
       gap: 2px;
+    }
+
+    .notes-list span:first-child {
+      padding-right: 0;
+    }
+
+    .notes-list span:last-child {
+      text-align: left;
+      padding-left: 0;
+    }
+
+    .notes-list span:last-child::before {
+      content: none;
     }
   }
 
   @media (max-width: 374px) {
-    .about-page {
-      padding-right: 24px;
-      padding-left: 24px;
+    .band {
+      padding-inline: 1.5rem;
     }
   }
 </style>
