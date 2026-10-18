@@ -29,6 +29,24 @@ function start(A) {
     return changed;
   }
 
+  // morph: crossfade a cell from its current glyph to another over ms (pixel-smooth)
+  const morphs = new Map();                      // key -> [r, c, startTime, ms]
+  const morph = (r, c, id, t, ms) => {
+    const cur = A.idAt(r, c);
+    if (cur === id) return;
+    A.setFrom(r, c, cur); A.setId(r, c, id); A.setBlend(r, c, 0);
+    morphs.set(key(r, c), [r, c, t, ms]);
+  };
+  function stepMorphs(t) {
+    let changed = false;
+    for (const [k, [r, c, t0, ms]] of morphs) {
+      const b = Math.min(1, (t - t0) / ms);
+      A.setBlend(r, c, b); changed = true;
+      if (b >= 1) morphs.delete(k);
+    }
+    return changed;
+  }
+
   // -- caret: a block cursor blinking in the last visible cell, like a prompt waiting ------
   function caret() {
     let r = -1, c = -1, orig = SPACE, on = false, next = 0;
@@ -108,7 +126,7 @@ function start(A) {
       let changed = false;
       for (let i = active.length - 1; i >= 0; i--) {
         const [r, c, orig, at] = active[i];
-        if (t >= at) { A.setId(r, c, orig); owned.delete(key(r, c)); active.splice(i, 1); changed = true; }
+        if (t >= at) { morph(r, c, orig, t, 300); owned.delete(key(r, c)); active.splice(i, 1); changed = true; }
       }
       if (t >= next && flat.length) {
         next = t + 450;
@@ -118,7 +136,7 @@ function start(A) {
           if (owned.has(key(r, c)) || !inView(r, c)) continue;
           const orig = A.idAt(r, c);
           owned.add(key(r, c));
-          A.setId(r, c, swap.get(orig)); spark(r, c, t, 0.55);
+          morph(r, c, swap.get(orig), t, 300); spark(r, c, t, 0.55);
           active.push([r, c, orig, t + rand(1200, 2600)]);
           changed = true;
         }
@@ -156,7 +174,7 @@ function start(A) {
   if (!REDUCED) effects.push(typo(), breathe());
   A.flush();
   const loop = (t) => {
-    let dirty = false;
+    let dirty = stepMorphs(t);                   // finish running crossfades before effects start new ones
     for (const step of effects) dirty = step(t) || dirty;
     dirty = fadeGlow(t) || dirty;
     if (dirty) A.flush();
