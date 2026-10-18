@@ -29,7 +29,6 @@ function start(A) {
     return changed;
   }
 
-
   // -- caret: a block cursor blinking in the last visible cell, like a prompt waiting ------
   function caret() {
     let r = -1, c = -1, orig = SPACE, on = false, next = 0;
@@ -136,14 +135,17 @@ function start(A) {
       }
     };
     for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
-    let closed = false, second = false, next = rand(3000, 6000);
+    const seq = [[eye.half, 70], [eye.closed, 230], [eye.half, 80], [eye.open, 0]];   // frame, hold ms
+    let i = -1, second = false, next = rand(3000, 6000);
     return (t) => {
       if (t < next) return false;
-      closed = !closed;
-      write(closed ? eye.closed : eye.open);
-      if (closed) next = t + 120;
-      else if (second) { second = false; next = t + rand(8000, 15000); }
-      else if (Math.random() < 0.2) { second = true; next = t + 160; }   // double blink
+      i++;
+      const [frame, hold] = seq[i];
+      write(frame);
+      if (i < seq.length - 1) { next = t + hold; return true; }
+      i = -1;
+      if (second) { second = false; next = t + rand(8000, 15000); }
+      else if (Math.random() < 0.2) { second = true; next = t + 220; }   // double blink
       else next = t + rand(8000, 15000);
       return true;
     };

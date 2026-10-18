@@ -11,5 +11,10 @@ export const eye = {
     "=c==c=c=c=c=c=c=",
     "cc=-----------=c",
     "=c=c=c=c=c=c=c=c"
+  ],
+  "half": [
+    "=c==c=c=c=c=c=c=",
+    "c!:     %%%%%%%c",
+    "=;      =c%c=c=c"
   ]
 };
