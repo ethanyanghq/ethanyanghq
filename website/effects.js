@@ -67,8 +67,48 @@ function start(A) {
     };
   }
 
+  // -- breathe: in flat areas, a few letters slowly swap case and back ---------------------
+  function breathe() {
+    const swap = new Map();                        // glyph id -> case-swapped id, when the ink is close
+    for (let ch = 97; ch <= 122; ch++) {
+      const lo = ch - 32, up = ch - 32 - 32;
+      if (Math.abs(A.state.tone[lo] - A.state.tone[up]) < 0.075) { swap.set(lo, up); swap.set(up, lo); }
+    }
+    const flat = [];                                // cells whose 3x3 neighbourhood has nearly uniform ink
+    for (let r = 1; r < A.rows - 1; r++) for (let c = 1; c < A.cols - 1; c++) {
+      if (!swap.has(A.idAt(r, c))) continue;
+      let sum = 0, sq = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const v = A.state.tone[A.idAt(r + dr, c + dc)]; sum += v; sq += v * v; }
+      const mean = sum / 9, sd = Math.sqrt(Math.max(0, sq / 9 - mean * mean));
+      if (sd < 0.05) flat.push([r, c]);
+    }
+    const active = [];                              // [r, c, originalId, restoreAt]
+    let next = 0;
+    return (t) => {
+      let changed = false;
+      for (let i = active.length - 1; i >= 0; i--) {
+        const [r, c, orig, at] = active[i];
+        if (t >= at) { A.setId(r, c, orig); owned.delete(key(r, c)); active.splice(i, 1); changed = true; }
+      }
+      if (t >= next && flat.length) {
+        next = t + 600;
+        const n = Math.max(1, Math.round(flat.length * 0.002));
+        for (let i = 0; i < n; i++) {
+          const [r, c] = pick(flat);
+          if (owned.has(key(r, c)) || !inView(r, c)) continue;
+          const orig = A.idAt(r, c);
+          owned.add(key(r, c));
+          A.setId(r, c, swap.get(orig));
+          active.push([r, c, orig, t + rand(1200, 2600)]);
+          changed = true;
+        }
+      }
+      return changed;
+    };
+  }
+
   const effects = [caret()];
-  if (!REDUCED) effects.push(typo());
+  if (!REDUCED) effects.push(typo(), breathe());
   A.flush();
   const loop = (t) => {
     let dirty = false;
