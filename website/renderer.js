@@ -27,7 +27,7 @@ void main() {
 
 const FRAG = `#version 300 es
 precision highp float;
-uniform sampler2D uData;      // cols x rows: R = glyph id, G = glow, B = seed
+uniform sampler2D uData;      // cols x rows: R = glyph id, G = glow, B = previous id, A = blend
 uniform sampler2D uAtlas;     // glyph atlas, alpha = ink coverage
 uniform vec2  uViewport;      // canvas size, device px
 uniform vec2  uCell;          // cell size, device px
@@ -39,6 +39,11 @@ uniform float uTime;
 uniform float uGamma;       // >1 thins strokes to match DOM text anti-aliasing
 out vec4 outColor;
 
+float glyphAlpha(float id, vec2 f) {
+  vec2 slot = vec2(mod(id, float(${ATLAS_COLS})), floor(id / float(${ATLAS_COLS})));
+  return texture(uAtlas, ((slot + f) * uCell) / uAtlasSize).a;
+}
+
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uViewport.y - gl_FragCoord.y) - uOffset;   // y down, grid space
   vec2 cellf = p / uCell;
@@ -49,9 +54,11 @@ void main() {
   }
   vec4 d = texelFetch(uData, cell, 0);
   float id = floor(d.r * 255.0 + 0.5);
-  vec2 slot = vec2(mod(id, float(${ATLAS_COLS})), floor(id / float(${ATLAS_COLS})));
-  vec2 uv = ((slot + fract(cellf)) * uCell) / uAtlasSize;
-  float a = pow(texture(uAtlas, uv).a, uGamma);
+  float prev = floor(d.b * 255.0 + 0.5);
+  vec2 f = fract(cellf);
+  float a1 = glyphAlpha(id, f);
+  float a = d.a >= 1.0 ? a1 : mix(glyphAlpha(prev, f), a1, d.a);   // crossfade between two glyphs
+  a = pow(a, uGamma);
   vec3 ink = mix(uInk, uHi, d.g);          // glow: brighten the ink, keep the glyph shape
   outColor = vec4(mix(uBg, ink, a), 1.0);
 }`;
@@ -82,8 +89,8 @@ async function main() {
       const i = (r * COLS + c) * 4;
       const code = rows[r].charCodeAt(c) || 32;
       data[i] = Math.min(94, Math.max(0, code - 32));   // glyph id
-      data[i + 2] = (Math.random() * 256) | 0;           // per-cell seed for later effects
-      data[i + 3] = 255;
+      data[i + 2] = data[i];                             // previous id (for crossfades)
+      data[i + 3] = 255;                                 // blend: 255 = fully the current id
     }
   }
 
@@ -217,6 +224,8 @@ async function main() {
     idAt(r, c) { return data[(r * COLS + c) * 4]; },
     setId(r, c, id) { data[(r * COLS + c) * 4] = Math.min(BLOCK, Math.max(0, id)); },
     BLOCK,
+    setFrom(r, c, id) { data[(r * COLS + c) * 4 + 2] = Math.min(BLOCK, Math.max(0, id)); },
+    setBlend(r, c, v) { data[(r * COLS + c) * 4 + 3] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
     glowAt(r, c) { return data[(r * COLS + c) * 4 + 1] / 255; },
     setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
     visible() { return state.visible; },
