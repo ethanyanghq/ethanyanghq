@@ -145,7 +145,7 @@ function start(A) {
     };
   }
 
-  // -- blink: the Homunculus blinks every 8-15 s and whenever the page is clicked ----------
+  // -- blink: the Homunculus blinks when the page is clicked -------------------------------
   // Frames go open -> three in-betweens -> closed; every step is a crossfade, so the lid
   // slides rather than snaps.
   function blink() {
@@ -160,7 +160,7 @@ function start(A) {
       }
     };
     for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
-    let li = -1, next = rand(3000, 6000), second = false, queued = 0;
+    let li = -1, next = Infinity, queued = 0;
     window.addEventListener("pointerdown", () => { queued = Math.min(queued + 1, 2); });
     return (t) => {
       if (li < 0 && queued > 0) { queued--; next = t; }  // a click starts a blink right away
@@ -172,10 +172,7 @@ function start(A) {
         next = t + ms + hold;
         return true;
       }
-      li = -1;                                        // back to open
-      if (second) { second = false; next = t + rand(8000, 15000); }
-      else if (Math.random() < 0.2) { second = true; next = t + 200; }   // double blink
-      else next = t + rand(8000, 15000);
+      li = -1; next = Infinity;                       // back to open, wait for the next click
       return true;
     };
   }
