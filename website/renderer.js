@@ -1,0 +1,209 @@
+// WebGL2 glyph renderer for the ASCII painting.
+//
+// The art text lives in the hidden <pre class="art"> (the no-JS / SEO fallback). This module
+// reads it, builds a glyph atlas from the bundled bold DejaVu Sans Mono at the exact device
+// cell size, and draws the whole grid with one fullscreen fragment shader: for every pixel,
+// find its cell, look up the glyph id in a cols x rows data texture, fetch that glyph's pixel
+// from the atlas, tint. Fixed glyph size, grid sized to cover the viewport, anchored top.
+//
+// A small API is exposed on window.ASCII so later effects can change cells and re-upload.
+
+const ADVANCE = 0.602;        // DejaVu Sans Mono advance width, in em
+const LINE = 1.204;           // line-height in em -> cells are exactly 1:2
+const FONT_FAMILY = '"DejaVu Sans Mono Web"';
+const FONT_WEIGHT = 700;
+const ATLAS_COLS = 16;        // 95 printable glyphs in a 16 x 6 atlas
+const ATLAS_ROWS = 6;
+const INK = [0xe8 / 255, 0xd9 / 255, 0xb5 / 255];
+const BG = [0x14 / 255, 0x10 / 255, 0x0a / 255];
+
+const VERT = `#version 300 es
+void main() {
+  vec2 v = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);   // one triangle covering the screen
+  gl_Position = vec4(v * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D uData;      // cols x rows: R = glyph id, G = tone, B = seed
+uniform sampler2D uAtlas;     // glyph atlas, alpha = ink coverage
+uniform vec2  uViewport;      // canvas size, device px
+uniform vec2  uCell;          // cell size, device px
+uniform vec2  uOffset;        // grid origin in canvas px (y down)
+uniform ivec2 uGrid;          // cols, rows
+uniform vec2  uAtlasSize;     // atlas size, px
+uniform vec3  uInk, uBg;
+uniform float uTime;
+uniform float uGamma;       // >1 thins strokes to match DOM text anti-aliasing
+out vec4 outColor;
+
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uViewport.y - gl_FragCoord.y) - uOffset;   // y down, grid space
+  vec2 cellf = p / uCell;
+  ivec2 cell = ivec2(floor(cellf));
+  if (cell.x < 0 || cell.y < 0 || cell.x >= uGrid.x || cell.y >= uGrid.y) {
+    outColor = vec4(uBg, 1.0);
+    return;
+  }
+  vec4 d = texelFetch(uData, cell, 0);
+  float id = floor(d.r * 255.0 + 0.5);
+  vec2 slot = vec2(mod(id, float(${ATLAS_COLS})), floor(id / float(${ATLAS_COLS})));
+  vec2 uv = ((slot + fract(cellf)) * uCell) / uAtlasSize;
+  float a = pow(texture(uAtlas, uv).a, uGamma);
+  outColor = vec4(mix(uBg, uInk, a), 1.0);
+}`;
+
+function compile(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    throw new Error("shader: " + gl.getShaderInfoLog(sh));
+  }
+  return sh;
+}
+
+async function main() {
+  const pre = document.querySelector("pre.art");
+  const canvas = document.getElementById("stage");
+  if (!pre || !canvas) return;
+  const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: false });
+  if (!gl) { console.warn("WebGL2 unavailable; keeping the <pre> fallback"); return; }
+
+  // ---- grid data from the <pre> -------------------------------------------------------
+  const rows = pre.textContent.replace(/\n$/, "").split("\n");
+  const ROWS = rows.length, COLS = rows[0].length;
+  const data = new Uint8Array(COLS * ROWS * 4);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = (r * COLS + c) * 4;
+      const code = rows[r].charCodeAt(c) || 32;
+      data[i] = Math.min(94, Math.max(0, code - 32));   // glyph id
+      data[i + 2] = (Math.random() * 256) | 0;           // per-cell seed for later effects
+      data[i + 3] = 255;
+    }
+  }
+
+  // ---- program ------------------------------------------------------------------------
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link: " + gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const U = {};
+  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uTime", "uGamma"]) {
+    U[n] = gl.getUniformLocation(prog, n);
+  }
+  gl.bindVertexArray(gl.createVertexArray());   // required for drawing in WebGL2, even with no attributes
+
+  // ---- textures -----------------------------------------------------------------------
+  const dataTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+
+  const atlasTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  gl.uniform1i(U.uData, 0);
+  gl.uniform1i(U.uAtlas, 1);
+  gl.uniform2i(U.uGrid, COLS, ROWS);
+  gl.uniform3fv(U.uInk, INK);
+  gl.uniform3fv(U.uBg, BG);
+  gl.uniform1f(U.uGamma, 1.45);
+
+  // ---- layout + atlas (rebuilt on resize, since the device cell size changes) ----------
+  const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(95) };
+
+  function buildAtlas(cw, ch) {
+    const a = document.createElement("canvas");
+    a.width = ATLAS_COLS * cw;
+    a.height = ATLAS_ROWS * ch;
+    const ctx = a.getContext("2d", { willReadFrequently: true });
+    ctx.clearRect(0, 0, a.width, a.height);
+    ctx.fillStyle = "#fff";
+    ctx.font = `${FONT_WEIGHT} ${cw / ADVANCE}px ${FONT_FAMILY}`;   // font size chosen so the advance is exactly cw
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    for (let id = 0; id < 95; id++) {
+      const x = (id % ATLAS_COLS) * cw;
+      const y = Math.floor(id / ATLAS_COLS) * ch;
+      ctx.fillText(String.fromCharCode(32 + id), x, y + ch / 2);
+    }
+    // per-glyph ink coverage (used by effects as "tone")
+    const px = ctx.getImageData(0, 0, a.width, a.height).data;
+    for (let id = 0; id < 95; id++) {
+      const x0 = (id % ATLAS_COLS) * cw, y0 = Math.floor(id / ATLAS_COLS) * ch;
+      let sum = 0;
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) sum += px[((y0 + y) * a.width + x0 + x) * 4 + 3];
+      state.tone[id] = sum / (cw * ch * 255);
+    }
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a);
+    gl.uniform2f(U.uAtlasSize, a.width, a.height);
+    return a;
+  }
+
+  function layout() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = window.innerWidth, H = window.innerHeight;
+    // same cover rule as the CSS: font size = max(width-fit, height-fit)
+    const fs = Math.max(W / (COLS * ADVANCE), H / (ROWS * LINE));
+    const cw = Math.max(1, Math.ceil(fs * ADVANCE * dpr));   // integer device px -> crisp glyphs
+    const ch = cw * 2;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (cw !== state.cw) { buildAtlas(cw, ch); state.cw = cw; state.ch = ch; }
+    state.dpr = dpr;
+    const ox = Math.round((canvas.width - COLS * cw) / 2);   // centred horizontally (crops both sides)
+    const oy = 0;                                           // anchored to the top edge
+    gl.uniform2f(U.uViewport, canvas.width, canvas.height);
+    gl.uniform2f(U.uCell, cw, ch);
+    gl.uniform2f(U.uOffset, ox, oy);
+  }
+
+  function flush() {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, dataTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COLS, ROWS, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  }
+
+  function frame(t) {
+    gl.uniform1f(U.uTime, t / 1000);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+  }
+
+  // the atlas must be drawn with the real webfont, not a fallback
+  await document.fonts.load(`${FONT_WEIGHT} 16px ${FONT_FAMILY}`);
+  layout();
+  window.addEventListener("resize", layout);
+  document.documentElement.classList.add("gl");
+  requestAnimationFrame(frame);
+
+  // ---- public API for effects ---------------------------------------------------------
+  window.ASCII = {
+    cols: COLS, rows: ROWS, data, state,
+    get(r, c) { return String.fromCharCode(32 + data[(r * COLS + c) * 4]); },
+    set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); },
+    setGamma(g) { gl.uniform1f(U.uGamma, g); },
+    tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
+    flush,
+  };
+}
+
+main().catch(err => { console.error(err); });
