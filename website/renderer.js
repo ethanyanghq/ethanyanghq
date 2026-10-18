@@ -17,6 +17,7 @@ const ATLAS_ROWS = 6;
 const BLOCK = 95;             // spare atlas slot: a solid block (caret)
 const INK = [0xe8 / 255, 0xd9 / 255, 0xb5 / 255];
 const BG = [0x14 / 255, 0x10 / 255, 0x0a / 255];
+const HI = [1.0, 0.96, 0.84];   // glow colour for cells an effect just touched
 
 const VERT = `#version 300 es
 void main() {
@@ -26,14 +27,14 @@ void main() {
 
 const FRAG = `#version 300 es
 precision highp float;
-uniform sampler2D uData;      // cols x rows: R = glyph id, G = tone, B = seed
+uniform sampler2D uData;      // cols x rows: R = glyph id, G = glow, B = seed
 uniform sampler2D uAtlas;     // glyph atlas, alpha = ink coverage
 uniform vec2  uViewport;      // canvas size, device px
 uniform vec2  uCell;          // cell size, device px
 uniform vec2  uOffset;        // grid origin in canvas px (y down)
 uniform ivec2 uGrid;          // cols, rows
 uniform vec2  uAtlasSize;     // atlas size, px
-uniform vec3  uInk, uBg;
+uniform vec3  uInk, uBg, uHi;
 uniform float uTime;
 uniform float uGamma;       // >1 thins strokes to match DOM text anti-aliasing
 out vec4 outColor;
@@ -51,7 +52,8 @@ void main() {
   vec2 slot = vec2(mod(id, float(${ATLAS_COLS})), floor(id / float(${ATLAS_COLS})));
   vec2 uv = ((slot + fract(cellf)) * uCell) / uAtlasSize;
   float a = pow(texture(uAtlas, uv).a, uGamma);
-  outColor = vec4(mix(uBg, uInk, a), 1.0);
+  vec3 ink = mix(uInk, uHi, d.g);          // glow: brighten the ink, keep the glyph shape
+  outColor = vec4(mix(uBg, ink, a), 1.0);
 }`;
 
 function compile(gl, type, src) {
@@ -93,7 +95,7 @@ async function main() {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link: " + gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
   const U = {};
-  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uTime", "uGamma"]) {
+  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uHi", "uTime", "uGamma"]) {
     U[n] = gl.getUniformLocation(prog, n);
   }
   gl.bindVertexArray(gl.createVertexArray());   // required for drawing in WebGL2, even with no attributes
@@ -122,6 +124,7 @@ async function main() {
   gl.uniform2i(U.uGrid, COLS, ROWS);
   gl.uniform3fv(U.uInk, INK);
   gl.uniform3fv(U.uBg, BG);
+  gl.uniform3fv(U.uHi, HI);
   gl.uniform1f(U.uGamma, 1.45);
 
   // ---- layout + atlas (rebuilt on resize, since the device cell size changes) ----------
@@ -214,6 +217,8 @@ async function main() {
     idAt(r, c) { return data[(r * COLS + c) * 4]; },
     setId(r, c, id) { data[(r * COLS + c) * 4] = Math.min(BLOCK, Math.max(0, id)); },
     BLOCK,
+    glowAt(r, c) { return data[(r * COLS + c) * 4 + 1] / 255; },
+    setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
     visible() { return state.visible; },
     onLayout(fn) { layoutListeners.push(fn); },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
