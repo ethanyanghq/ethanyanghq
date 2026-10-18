@@ -33,7 +33,42 @@ function start(A) {
     };
   }
 
+  // -- typo: every 8-15 s one cell mistypes a same-tone glyph, pauses, backspaces, retypes --
+  function typo() {
+    const similar = [];                            // for each glyph id: ids with nearly the same ink
+    for (let i = 0; i < 95; i++) {
+      similar[i] = [];
+      for (let j = 1; j < 95; j++) if (j !== i && Math.abs(A.state.tone[i] - A.state.tone[j]) < 0.035) similar[i].push(j);
+    }
+    let phase = 0, next = rand(4000, 8000), r = 0, c = 0, orig = SPACE;
+    return (t) => {
+      if (t < next) return false;
+      if (phase === 0) {
+        const v = A.visible();
+        for (let tries = 0; tries < 20; tries++) {
+          r = (rand(v.row0, v.row1 + 1)) | 0; c = (rand(v.col0, v.col1 + 1)) | 0;
+          orig = A.idAt(r, c);
+          if (!owned.has(key(r, c)) && orig !== SPACE && similar[orig].length) break;
+          orig = -1;
+        }
+        if (orig < 0) { next = t + 1000; return false; }
+        owned.add(key(r, c));
+        A.setId(r, c, pick(similar[orig]));
+        phase = 1; next = t + rand(350, 600);
+      } else if (phase === 1) {
+        A.setId(r, c, SPACE);                       // backspace
+        phase = 2; next = t + 140;
+      } else {
+        A.setId(r, c, orig);                        // retype
+        owned.delete(key(r, c));
+        phase = 0; next = t + rand(8000, 15000);
+      }
+      return true;
+    };
+  }
+
   const effects = [caret()];
+  if (!REDUCED) effects.push(typo());
   A.flush();
   const loop = (t) => {
     let dirty = false;
