@@ -1,32 +1,27 @@
 // Grid regions used by effects. Coordinates are rows/cols of the current art; regenerate if the art changes.
 export const eye = {
-  "row": 40,
-  "col": 238,
+  "row": 41,
+  "col": 240,
   "open": [
-    "==!/\"??%%%%%%s%%",
-    "c!:     %%%%%%%c",
-    "=;      =c%c=c=c"
+    ":     ",
+    "      "
   ],
   "closed": [
-    "=c==c=c=c=c=c=c=",
-    "cc=-----------=c",
-    "=c=c=c=c=c=c=c=c"
+    "------",
+    "=c=c=c"
   ],
   "frames": [
     [
-      "==:--==%%%%%%c%%",
-      "c-:.....cccccc%c",
-      "=-......=c%c=c=c"
+      ":.....",
+      "......"
     ],
     [
-      "==-====c%c%c%=%c",
-      "c=-:::::======cc",
-      "==::::::=ccc=c=c"
+      "::::::",
+      "::::::"
     ],
     [
-      "=c====c=c=c=c=c=",
-      "c==:::::=======c",
-      "==-=-=-==c=c=c=c"
+      "-:::::",
+      "-=-=-="
     ]
   ]
 };
