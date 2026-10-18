@@ -145,26 +145,34 @@ function start(A) {
     };
   }
 
-  // -- blink: the Homunculus closes its eye for ~120 ms every 8-15 s, sometimes twice -------
+  // -- blink: the Homunculus blinks every 8-15 s ------------------------------------------
+  // Frames go open -> three in-betweens -> closed; every step is a crossfade, so the lid
+  // slides rather than snaps.
   function blink() {
-    const write = (frame) => {
+    const frames = [eye.open, ...eye.frames, eye.closed];
+    const DOWN = 36, HOLD = 140, UP = 46;          // ms per leg down, closed hold, ms per leg up
+    const legs = [];                                // [frameIndex, legMs, holdAfterMs]
+    for (let i = 1; i < frames.length; i++) legs.push([i, DOWN, i === frames.length - 1 ? HOLD : 0]);
+    for (let i = frames.length - 2; i >= 0; i--) legs.push([i, UP, 0]);
+    const write = (frame, t, ms) => {
       for (let i = 0; i < frame.length; i++) for (let j = 0; j < frame[i].length; j++) {
-        A.setId(eye.row + i, eye.col + j, frame[i].charCodeAt(j) - 32);
+        morph(eye.row + i, eye.col + j, frame[i].charCodeAt(j) - 32, t, ms);
       }
     };
     for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
-    const [f1, f2] = eye.frames;                  // tone-interpolated steps between open and closed
-    const seq = [[f1, 45], [f2, 55], [eye.closed, 170], [f2, 55], [f1, 45], [eye.open, 0]];   // frame, hold ms
-    let i = -1, second = false, next = rand(3000, 6000);
+    let li = -1, next = rand(3000, 6000), second = false;
     return (t) => {
       if (t < next) return false;
-      i++;
-      const [frame, hold] = seq[i];
-      write(frame);
-      if (i < seq.length - 1) { next = t + hold; return true; }
-      i = -1;
+      li++;
+      if (li < legs.length) {
+        const [fi, ms, hold] = legs[li];
+        write(frames[fi], t, ms);
+        next = t + ms + hold;
+        return true;
+      }
+      li = -1;                                        // back to open
       if (second) { second = false; next = t + rand(8000, 15000); }
-      else if (Math.random() < 0.2) { second = true; next = t + 220; }   // double blink
+      else if (Math.random() < 0.2) { second = true; next = t + 200; }   // double blink
       else next = t + rand(8000, 15000);
       return true;
     };
