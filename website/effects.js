@@ -93,7 +93,7 @@ function start(A) {
     const swap = new Map();                        // glyph id -> case-swapped id, when the ink is close
     for (let ch = 97; ch <= 122; ch++) {
       const lo = ch - 32, up = ch - 32 - 32;
-      if (Math.abs(A.state.tone[lo] - A.state.tone[up]) < 0.075) { swap.set(lo, up); swap.set(up, lo); }
+      if (Math.abs(A.state.tone[lo] - A.state.tone[up]) < 0.1) { swap.set(lo, up); swap.set(up, lo); }
     }
     const flat = [];                                // cells whose 3x3 neighbourhood has nearly uniform ink
     for (let r = 1; r < A.rows - 1; r++) for (let c = 1; c < A.cols - 1; c++) {
@@ -112,14 +112,14 @@ function start(A) {
         if (t >= at) { A.setId(r, c, orig); owned.delete(key(r, c)); active.splice(i, 1); changed = true; }
       }
       if (t >= next && flat.length) {
-        next = t + 600;
-        const n = Math.max(1, Math.round(flat.length * 0.002));
+        next = t + 450;
+        const n = Math.max(2, Math.round(flat.length * 0.006));
         for (let i = 0; i < n; i++) {
           const [r, c] = pick(flat);
           if (owned.has(key(r, c)) || !inView(r, c)) continue;
           const orig = A.idAt(r, c);
           owned.add(key(r, c));
-          A.setId(r, c, swap.get(orig));
+          A.setId(r, c, swap.get(orig)); spark(r, c, t, 0.55);
           active.push([r, c, orig, t + rand(1200, 2600)]);
           changed = true;
         }
