@@ -135,7 +135,8 @@ function start(A) {
       }
     };
     for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
-    const seq = [[eye.half, 70], [eye.closed, 230], [eye.half, 80], [eye.open, 0]];   // frame, hold ms
+    const [f1, f2] = eye.frames;                  // tone-interpolated steps between open and closed
+    const seq = [[f1, 45], [f2, 55], [eye.closed, 170], [f2, 55], [f1, 45], [eye.open, 0]];   // frame, hold ms
     let i = -1, second = false, next = rand(3000, 6000);
     return (t) => {
       if (t < next) return false;
