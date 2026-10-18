@@ -14,6 +14,22 @@ function start(A) {
   const key = (r, c) => r * A.cols + c;
   const inView = (r, c) => { const v = A.visible(); return r >= v.row0 && r <= v.row1 && c >= v.col0 && c <= v.col1; };
 
+  // glow: cells an effect touched light up and fade over GLOW_MS, so a swap between two
+  // similar glyphs still registers as a spark without moving the drawing
+  const GLOW_MS = 700;
+  const glowing = new Map();                     // key -> [r, c, startTime, strength]
+  const spark = (r, c, t, strength = 1) => { glowing.set(key(r, c), [r, c, t, strength]); A.setGlow(r, c, strength); };
+  function fadeGlow(t) {
+    let changed = false;
+    for (const [k, [r, c, t0, s]] of glowing) {
+      const v = s * Math.max(0, 1 - (t - t0) / GLOW_MS);
+      A.setGlow(r, c, v); changed = true;
+      if (v <= 0) glowing.delete(k);
+    }
+    return changed;
+  }
+
+
   // -- caret: a block cursor blinking in the last visible cell, like a prompt waiting ------
   function caret() {
     let r = -1, c = -1, orig = SPACE, on = false, next = 0;
@@ -22,7 +38,7 @@ function start(A) {
       const v = A.visible();
       r = v.row1; c = v.col1; orig = A.idAt(r, c);
       owned.add(key(r, c));
-      on = true; A.setId(r, c, A.BLOCK); A.flush();
+      on = true; A.setId(r, c, A.BLOCK); A.setGlow(r, c, 1); A.flush();
     }
     A.onLayout(place); place();
     if (REDUCED) return () => false;              // static caret
@@ -136,6 +152,7 @@ function start(A) {
   const loop = (t) => {
     let dirty = false;
     for (const step of effects) dirty = step(t) || dirty;
+    dirty = fadeGlow(t) || dirty;
     if (dirty) A.flush();
     requestAnimationFrame(loop);
   };
