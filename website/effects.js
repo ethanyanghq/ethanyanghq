@@ -2,6 +2,8 @@
 // requestAnimationFrame loop; when any of them changed a cell, the grid is uploaded once.
 // All of them only swap characters in cells, so the drawing never moves.
 
+import { eye } from "./regions.js";
+
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
@@ -107,7 +109,28 @@ function start(A) {
     };
   }
 
-  const effects = [caret()];
+  // -- blink: the Homunculus closes its eye for ~120 ms every 8-15 s, sometimes twice -------
+  function blink() {
+    const write = (frame) => {
+      for (let i = 0; i < frame.length; i++) for (let j = 0; j < frame[i].length; j++) {
+        A.setId(eye.row + i, eye.col + j, frame[i].charCodeAt(j) - 32);
+      }
+    };
+    for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
+    let closed = false, second = false, next = rand(3000, 6000);
+    return (t) => {
+      if (t < next) return false;
+      closed = !closed;
+      write(closed ? eye.closed : eye.open);
+      if (closed) next = t + 120;
+      else if (second) { second = false; next = t + rand(8000, 15000); }
+      else if (Math.random() < 0.2) { second = true; next = t + 160; }   // double blink
+      else next = t + rand(8000, 15000);
+      return true;
+    };
+  }
+
+  const effects = [caret(), blink()];
   if (!REDUCED) effects.push(typo(), breathe());
   A.flush();
   const loop = (t) => {
