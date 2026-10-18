@@ -12,9 +12,16 @@ export const eye = {
     "cc=-----------=c",
     "=c=c=c=c=c=c=c=c"
   ],
-  "half": [
-    "=c==c=c=c=c=c=c=",
-    "c!:     %%%%%%%c",
-    "=;      =c%c=c=c"
+  "frames": [
+    [
+      "==---==c%c%c%c%c",
+      "c--.....cccccccc",
+      "=-.:.:.:=ccc=c=c"
+    ],
+    [
+      "=c-===ccccccc=cc",
+      "c=-:::::======cc",
+      "==------=ccc=c=c"
+    ]
   ]
 };
