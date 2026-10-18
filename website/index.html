@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ethan Yang</title>
+  <style>
+    /* Same font file the converter matched against, so shapes on screen are the shapes it chose. */
+    @font-face {
+      font-family: "DejaVu Sans Mono Web";
+      src: url("fonts/DejaVuSansMono-Bold.woff2") format("woff2");
+      font-weight: 700;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "DejaVu Sans Mono Web";
+      src: url("fonts/DejaVuSansMono.woff2") format("woff2");
+      font-weight: 400;
+      font-display: block;
+    }
+    :root {
+      --ink: #e8d9b5;
+      --bg: #14100a;
+      --mono: "DejaVu Sans Mono Web", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-variant-ligatures: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Full-viewport stage. The art is centred and cropped ("cover"), never wrapped. */
+    .art-wrap {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: start center;   /* anchor to the top edge: crop floor, never heads */
+      overflow: hidden;
+    }
+    /* 300 columns x 94 rows. A 0.602em-advance mono font with line-height 1.204
+       gives 1:2 cells. Art width = 300 x 0.602 = 180.600em; height = 94 x 1.204 = 113.176em.
+       font-size = max(width-fit, height-fit) so the art covers the whole viewport. */
+    /* WebGL stage: shown only once renderer.js has a context and the font (html.gl). */
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    html.gl #stage { display: block; }
+    html.gl .art-wrap { visibility: hidden; }
+    pre.art {
+      margin: 0;
+      width: max-content;
+      font-family: var(--mono);
+      font-size: max(calc(100vw / 180.600), calc(100vh / 113.176));
+      line-height: 1.204;
+      font-weight: 700;
+      letter-spacing: 0;
+      font-variant-ligatures: none;
+      white-space: pre;
+      color: var(--ink);
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage" role="img" aria-label="ASCII rendering of the painting Homunculus Loxodontus"></canvas>
+  <div class="art-wrap">
+<pre class="art" aria-hidden="true">%%%%%%%%%%%n%%%%s%n%n%%%%s%%]?!""::'''::``:':`'``:""%c=%%c=%%c%%%%%%%s%%ns%%s%s%n%%s%s%%%nn%nsnnnns%nsnnoaonnnnnanannnonoonnaoaa8o8nonnnnnnnnnn%%ssnssnnnoaoooonnnnnonooononnn%nnnnoo88aannnnaoooooonnno8nnnnn8nnnnoooonooooaaonaaooooo8a8oonoonaaaoao8o8o8ooooo8o8a8a8aa8a888onnaaoa8a8a8a8o8ooaaaoannaooaa
+c%%%s%%%csnnonnnn%n%%n%%%s?/:'```.`..:.'::.``::::-. `"\|%%c%%%%%sn%%%nsnsss%n%nnnnnn%%snnnsns%snonononnonoannnnnaon8o8a8a8o8o88aanoo8aoonoonnsnnsn%nnnonnoaoaonnaonooooooooooonnnnnnao8aannooaaaaoaaonooooaaaooonoaooooaoaaoaaaaoo8oao8a8o8on8o8ao88n8o8onn8a8a8a888a8a88o8aona8o8o8aa8ea8aaan8o8888on8ooaoa
+%%n%%%%n%n%%n%%o%%%%%s%s[?':'`.  ```.:''''`'.`."\::..`` `'"??%%%%%%s%s%%%ssssss%%ss%%%sssnsnsssnoonoonnonnnooooono8oaa8oanoooaaaa8n8nonnnnnnnsn%nnnnsoanoaannnnooooonnnnnoaaononn%nno8o8oaooaoooaaoaoono8nooona8nnoooanooaaaaooaaoaoaoooaaaaaooo8o8n8a8aa8aoao8na8oa88a8a88a88o8o88o8aa8ee8a8a8o8o8nao8o8o88
+%nn%n%n%nsn%snnnnn%%%%%!;/``` `  ```.`''` ``.::::::!!::. `  `!%%%sn%snss%n%%%n%ss%s%n%%%s%%%%%%nannnnnnnnnnaonan8onooaaanaao8o8o8aann8nnnnosn%nnoonn%noooooaoonnnooonnnoo8oooooonaaoo8onoooaooaoooaoooonoo8aaaaoooon8ooaoanaao8oao8oaaaao8o8a8a8o8o8a8aaaoao8aoaa8a8a8aa88a8ao88aoao8o8a888a8aa8o8ao8aooaon8
+sss%n%sn%nnoon%%%%%n%%%!:  ```` ```::;:.:..''!/\!\/;'::;:  '\;;=%%snn%sssssns%s%%s%%%%%s%s%nsssnnnnnnssnnsnnnnnn%nnnoo8noon8nno8n8naonnsnnnns%nnn%nonnonoaaooonnnnnoonnoonnooooaooooanaaaonoonnoaoaooaaaa8o8aa8aa88nnnnnooooooanoonoaaaaaa8o88a8a8a8noa8aa8a8nao8aa88888a88n8a8o88a8aaoaoo8o8a8aa8a8a88888o8
+n%ss%s%%%%%n%n%nn%%%%%!: `  ``.`..'::;;::::..'::;;"":/[|:;:/!;!c%%sssnsss%s%s%%s%s%%%%%s%%%%%ssnnonssnsn%snnnsnnnsnnnsnnnnnnn8nnnsn8nn8nn%nnnns%snnnnno%nonnnnnnnnnoonnonoooannnoononooooooaooooonn8ooaanaao88on8oon8nnnoonnnnnoooonnoaoaaaa8n8n8n8nn8ooonn8noj8nnnn8n8n8nn8o8o8nnnnnnn8onnnnnn8o8a8aoaonn88
+%%n%s%%%%%%c%%%%%s%c%=``  `  .'::':::::::::::::|%[!!\]8jj::=!!cc%%%%%%%%%n%ssnn%%%%s%%%%%s%%%%%%%n%n%s%%%%n%nn}nn%n%n%n%%nn%ns%snn%%%%%%%%%%%%%%%%ss%n%%n%nss%s%s%%ssn%%n%%n%nsn%on%snoos%%%n%s%%s%%nnsnsnnn%ssn%n%%%ns%%nn%nnj8n8nnnoo888a8o8n8%8no8nnon%nsnonsnoaoo8o8o8]88o8a8no8o8naa8nnao8na8an8ao8aano
+%]s%%=%==!==c%c%%%%!c!`     ``:```'.::`:'``::;c?!c;|]n888[';:=!===c%cc%%%cc%%%cc%=ccc%%%%%%%c%%%%%%cc%%%ss%s%%%%%%n%nn%nns%%%nnn%nnnoonns%%s%%%%ssnn%s%n%%%%snnsn%%%%%nn%nn%o%nns%n%%nns%%n%%ssnnsn%%nnsnnnnnnnn%%nnsnojjnooo8oonn8oonnnoono8o8o8oo8oo88n8onnaoo8o88888o8o8888a888o88ao8onn8o8oaoo88o88o8888
+%s%%%c=c=cc=c%c=c=!!c;`  ` `.':.'`.'':```.:::!:\|%s%jOa88j|c\|c==;c==cccc=cc%cccccccc=c%cc%cccc%%%%c%%%cc%%%%%ss%n%s%%nnnnn%nnsnnnnnonn%nns%n%nssss%%%%sn%nn%n%%nnoooann%nnooaooonsnnnnssnnss%nnnoonnn%nnnnnnnnoo8nn8na8888oano8noaa8o88n8888n88a88a8a8aaa8o8na8a8aaa8a8888o888o8o8nnoaoa8a8o8a8a88a8a88a888
+%n%%c%%%%%%%%%%%!%%%=/`    `.:::''.:``..:.,;\;]n%jj88o88#8ncc=c=c%c=c%cc%%ccc%cc=%%ccccccc%%%%%%ss%%%%%%%%%%sss%nns%n%n%s%nnnnn%8o8ononnnnnsn%%c%%%%n%s%nsnnn%nnnnnnoonnnnoonoonnnssnnnnn%nssnoonnnns%nnoonaoonaon8o8ao8nn8o8o8nn8a8a8a8aooaa8ao888o8aaa88a8oo8a8a88a88ao8a8aa8888o88n88aaa8a8o8ooo888o88888
+%%n%%%%cc%c%%%%%c%c=c;..  ``:,;!!!:'.::;!;!!%n8nnO8j8%8j7?\"!%ccccc%c%%ccc%%%c=%cccccccc%%%%%%%n%ns%nns%s%%s%%%ns%%n%%n%nnnsn%nooanoonnn%nsns%%%%%%n%n%snssnnns%snnnn%nnnnonnnonn%nnnonnnnnsnsnsnnonsnnnao8oa8aa8oo8o8aaaaaaoaaaao8n8a8noa88o8o8oo8a888a8a8o88a8o8o8noa88o8a8a8oa88oaaaaaaaaaa8o8888a8888888
+%%}%%%%%%%%%%%c%c%%=%|;:` `:=!c;'`.:;;;!c!:=!%?%[??\?]{\'":/ccc=cc%%%ccccc%%cccccc=cc%c%c%%%%nss%nsnn%n%%s%%ss%s%%%%nssnn%nn%nnoaooannosnssssssssss%s%nssnssnnsnnnnnn%nsnnnnonnssnsnnnnsnnnnnnnnnnnnnonooann8o8ooa8o8n8aa8o8aaoaaonaonoan8aaoo8o8ao8aoaaa88aaa8a8a8a888ao8oaao88oa8o8a8aa8a8aa8aa8888aa8o888
+cc?%c!%ccc%%%sc=c%c%c=!:  \!|/?=!::!!!]c!;;!%!!"`;/!"?[c\;|%c=c%cc%%%c%%%%%ccc===%cc%%c%cc%%s%%%nns%%n%n%%ns%%nnnn%n%%%n%nnsnssnnn%n%s%n%%nsns%ssn%nn%n%ssss%nnonsnnnnnnns%naoooos%nnonnnnnssn%nonoaonnnannao8n8o8na888n8n8na8o8a8o8a88oao8a8a8o88o8a888ao8n8a8a8a8a8oa88n88a8no8ooao8oaaaoa8aaa8a8o8a8o8888
+/!\""?=%%%%%c%c%%cc|;=/`  \=%/!!:::!!c!!!=|]}|||[|c!;;|%%%%%%%c=cc%ccc%%%%%c=ccc=c=c=%c%%%%s%%s%n%%sss%%%%%%%n%n%nnnnn%nn}%snn%%n%nnnn%nsnssss%%%%s%sssnno%snnnooonoonnsnonoonnonnnononnnnnn%sno%noaonnoaaoaannnjnon8n8a8aao8o8oo8o8o8a8o8oo8o8a8o8on8oo88naon8o8a8o8n8an8888o8a8o8aaoo88aaaa88a888a8a88o888
+!:/\://"=??/????%?!=!%[;..:!=\/"!::!;c:!!/\=%%8%%%%%!=?\%%!]%cccc%cc%%%s%%%cc=c=%cc=ccc%c%%%n%nn%nssssnss%ss%%%sssn%ssnnsnonn%nssnn%s%ssss%s%%%%nsn%s%osnnnnnnnnnoooonnnnnoooonnnnoooooonnnnnanoao8noooonoaanooooooaa8oaaa8a8oa8aaao8o88n8n88888a88a8o8oo8n8o888o88a8o8888a8a88a8ooaa88oo8o88a8o8o88o8aa8888
+.:://\c!%c:::::;!!c;/?]%]|,.!;!\!;\/c!=!:'::/|/\|=%%\!!:?n|/%%%%cc%%%%%x%%%%=cc%c=ccc%%%%%%s%%%%%n%ssss%%%%%%ssssnsnn%nnonnnnn%nnnnnsssnnsss%snnn%nsnnonsnnn%nnnnnnnnsnnsnnnnnonnnnnnnnoonsnonnnnoooaonaoaonn8oooooaon8a88o8a88a88o8o88ooon8n8o888o8a8a88ooaaa8o8ao8o8o8o8aa8o8aao8a8aa88a88o8a8a888o888a888
+!\;:!|?!"":!::;;;;;%}|!?%8|;.''":`:!!!!!:`.,;:!!:!!|:''"'?%;%%c%%c%%%%%%%%%%cccc=%%%c%%%%s%ss%n%s%n%%nnn%%s%%sn%n%n%nsn%oon%s%n%%s%%nnnnns%%%s%nnnsnnnoonss%onnnn%nnn%%nssssnonnnoonnnnooonsnnonnaao8naoooooaoaaoa8oooa8n88a8o8oao8a8nao888888o88n888oooaaa8a8a88o888n8ae8a888oe8ooa8a8aaaaaa8a8o8n88aa8a888
+:,,:;;:``'`::!!%jnc=%}j/\]jn;`.` ``:;!=!::`:`::::!!!;\\;;|%|%c%%%%%%%c%%%%ccc=cc%%c%%%%sss%%ns%n%snssnnn%n%%%%%sssnnnnnonnsnn%snooaooooanno%s%snn%nnoaaonnnaonnnnnsn%n%nnnsnnooanoonsnoaonooooonoooaoooaaan8o8oaoooaa8aaaea8a8aaaaaao8o8oao8oo88a88a8a8o8o8aaa8o8o88o8a8o8o8oo8a8n8on888a8a8o8o8a8a8o8aaa888
+:/|c/!...```:`"![?%=?/"\"\/?|.`` ``.:/!;!.` `:::::!!cc!=!%|/%%%%%%s%n%%%%%c%cc==%cc%%%%n%nnnss%ns%%%ss%%ss%%%sn%ns%nonnnnnsnnnnnaooooaonnsssn%s%sssnnnoooooooannnnn%nnnnnnnnnoonnnooanoaonnonooonaoaaannn%nnoa8ooaaooaoo8888oaao8oaaaaon88o888o8a888a8888aa88a88a8aa8o8oa8a8o8aanonaao888a88o8oa8a88a8888888
+;;`:.````   "\`:/\:````;||||||;_```:!!%|:```.:!:'':!\;;!!|;/%%%%n%%]%%%%%%%c%cc%%%%%%%%%%n%%%nnnnnnss%ns%sss%snnn%n%nnnn%nnsn%n%nonnnnnn%ns%nssnn%nnnaooaon8on%nnn%ssnsssn%snnonnnnnnnnonnnsnnnaoooaaaaoaaoanonoaon8o8o8n8a8a88aao8o8a8ao8o8jn8oaonaaannooan8a8a8a8a8o88o8a88888a8o8o88aa8a8a8a8a8a8a8oao8a8
+:.:/|!;::":..`..`!:.::==;?%%c%jj:`.`';!!:'``':"'::;!c%%%jjj[;%c%%%%%c%%%%%%c%%%%%%%%%%n%%sn%nn%nnn%s%n%s%n%n%%s%%n%%nnnnoons%n%nnnnnnnnnnnssnsnnnonoooooooonnnnnsnnnn%nssnsnnooannnonnnnssnnnnoooooooooaooa8oaoooaaoaaonnj8aaa8a88o8a8a88a8o88n88n8o88a8a8a8a8a8a8a88a8a8aaaoanooo8o8o8a8a8a8o8o8aaa8aa88888
+;/!;:/;::::::;:;.:!!;;%%%{j%@jjnj|'`'`\c:'````'`:!:\!!!%%8}%c=c%%c%%c%%%s%%%c%%%%%%%ss%s%nss%noo%n%nnss%s%%%%s%ss%%%snnnannnn%no%8ooooonn%%%snnnnnnoonnoaoonnn%nno%nnnon%nnnooaoaaaanoooonnnoooonoa8n8naaoonnao8non8n88888naa8o8ao8aoa8ao8o88o88o8o88an8aao8ao8a8o8a8a8a8a8888a88on8n8a8o8aaa8o8a8a88a8aaa88
+""|c\;!:::.:;!!\/:"%%|j%njj8[j8n8jL:``:`::.`` `.;!:::!!c?%%s%c%%%%%%%c%%%%%%%%%c%%%c%%%%%nsssnnnn%onsn%s%%%%%%%%%%%%%%%nnnnnn%nn%nnnnonnsn%%nnnoannsn%nnooaonsn%nnnnss%%snnnnnnnnaa8nnoooanaooonnnonnnnnonooooonnnnoaoo8nnoao8o8n8oo88oo8n8oaa8n8oO8a88aa8aoo8o8o8aa8a8o8o8a8o8oo8ao8o88a8aaaaaa8o88o8a8a888
+!!|!|%;;':!;=c;!!.`\8jn8@j8j77??{@j;`.'.. `   ```:":::!!c!%%%cc%%%%%c%c%%%%%%%c%%%%%%%s%%%%%s%n%%sn%%%s%%%%%%ss%%%s%n%%snnnnn%%nn}n%]%nsnnnnnnnnnn%nooonn8nnosnsn%nssnnnnnn%snnnooaaaaoooooooooooooonnoaaoaoaoooon8ao8no8o8onnaooo8a8aa8o8o88a8o8n8n8ao8aoa8oa8o8888a8a8888aaaa8aaa8888aaaa88o8aa88o8a8ao8a8
+'""!!]%!:.:!!!!=c;``?87}|/'"``'\%nn\':':::,`    .::'::;!?|!%%%%%%%%%%%%%%%%c\\;!!/?%%s%%n%ns%%%snnsn%n%%%s%sn%%ns%%%%[%%[%%%%%[?][\%c???%%{nn%osn%nnoonoaoooonn%nsssnnnnsnnnnsnnoaoooosnn%onooonooonnoanonoooaooaono8aoa8no8o88888oaa8oaaa8oaa88a8naa88a8oao8aa8aa8a88o8n88a8a8aa8ooao8888aaaaoaaaa8a8n8aa8o
+::::':c|!\:/=c!=c"   "??`` ` ,;,:?jL.:::'::;:. ````:::\%!;;c%c%%%%%cc?\!!"```````````''`"\!%nnj%%s%%n%%%s%%%sn%%%s%=|!!!!:::!''::``````'!==%n%n%onn%noonnnonnnnnssssssnssssssssnoooooonnnnnnnnnoaon%n%%oonnnnnaoanaoooaonoon8oonnaoaao8aaaa8a8n8oaaa8aa8o8a8aa888a88on8a8aa8a8aa8aa8a88n8o8a8o8aaaaao8aaaa88
+;.`";:::!%;;%|;][/:`.   `    :jj|/[/\:;;;;;:;``.`  .:;;!]%[|cc%c%!/!:``..``'`   `  ` ` ` ``'"!??%%s%%%%%%%ns%s%nn?\!"':''::::::::'``` ``'::??%%njjnnsn%ooon%n%s%nn%nnn%n%nnsn%nsnnnooaoonnsnnssnonn%%oaononnooaoonoaaao8n888oa88a88o8aaa8a8o8oa8a8aaoa8aa8oaa8a8o88o88a8o88a8888oa8o8a8a8aaaaa8o8o8naaa8o8a8
+.:```'::\!"!c!\n}\;`` `      /{8j|[::\|||jjn[``` ';,:"cjjj[jcc%|!;:-`` `   . .         .` ` ` `''"/?%%%%%%n%%s%}/!'`` `.:.';;!;!;\::'` ``::=!==%?[%%nooaoonnnnnnnonnsnssssnnsssssnnooonnonno%snnns%nnnoonnnannoooaoooaonanaoa8o8a8o8aa8aa8o8n8aaa8a88ao88aa8aaaa8a8a8a8aa8a88aaa8oon888888a8o8na8nn8a8aaao88
+``:.` `";;::":|n%%[::`.` `   '/7j[%:/]%nj@8}:.\/``\"!;/]nn8%%?\:`` `        . .`.:  . ..``.  `  ` ``/?%%%ssss%|"`    ..':!!!!|]c=!:;,:::.'':!;;;;cc%snnannooooooonnsnsnn%s%onsnnnnnnnnnoannnnonaonnnnnonnnnnnnnannooaa8o8aa8a88a8aaaaaoaaa8o8a8a8o8o88aaoa8o8888o8a888o8a8aaoa88o8aaao8o8aaaaoo8o88oa88a8a8e
+:;::::.'!!:``:j[]%[!;:` ` ` ` `\?!c!!%8o8@j\!:c/`:!!!;=cn%n["``` `  ` .     .::':`./:,;::,,```,.`:.':;?%%%%sc/`    ` ``.:'"!!%%%c|/::':!:.`:;!!?[!!?%snon8noaaoaonnonsnsnnonnnnsnsnnsssnn%nnnnnnnnonnonoaoonnnnoaooaoaaaaaaaao8aa8aaaaa8a8o8ao8a8a8aaaa88oo8n8o888a8oa888a8a8a8a8n8o888o8a8aa8aaaan8n8n8a8a8
+`!!;::!:'!: `/%%%%\:%\/\:;:``` ``!!!!?%%j8j!!/!: `:!!c;%%[?"` `   ` .`  ` ` .;.::`:"!:c!!;;:.:!;,;;:!|!?%%%sc:`      ````''""!!\cc;;|;:'..:`` ``,,::;%%annnanaaoonnnnnnsnsnnssnsnnnnnnnnnnnssn%oooooooooooonnoooaaoaa8a8a8a8o8a8aaa8a8oaaaaaaea8o8o8a8aaoo8na88aao8a888a88aaao8o8ooa8oaaaaaaaa8aa8a8aa88a8a8
+'`:";:!\.:` :%nn[\|/\:;::::..`   `'!!:|%%8j;;c"`;':!!=|{%?"     .` `'`.`:::.!!:::;;!;;!;!!!;;;;=c![!:/!c%n%s|````      ` ```':;!=%===c:;||[[;..'|[=::c%oonnnonannnnns%s%%snnonssnsnnnn%sn%nnnoooonnnonoooaoooooaaoaaaaaaaa8aaaa8a8aaon8o8aaaaa8o8ooa8o8aanaa8oo8888aaa8a8aaaoon8a88o8a8o8o8a8aao8o8aa8o888a8
+:::::!!=::`.|[%\;?c=/:\::::!:.`.  `\[:!%%j}\!\` :''!|!%cc;.    ` `  ` `':`::`'::!!%=!!"/={[%[%%|==[!:;;c%%sn[:          ``..:,:!!?!!!==jj@88jj/:;"::;%snoonnnnoaannsss%%%%nsnnnnnnnnnnns%n%ss%ooaonoonooaoaooaaaoaaaaaa8aaa8aa8oaaa8a8oaaa8oaaa8aa8aao8n8oaoaa8oaoaa8a8aaa8o8o8oaa8no8a8oaa8a88a8ooo8o88ao88
+!:.':;:\'`.|%c\::!!=\:%\/!!!:     .][::!%?\|/` ..:,/;c%|=:  `   ` ```':`.'''-:::!!!!!!!\|sjjc%%%c%!!;%!!c%%c"`` `  `` ` ''`.::::;!;;c;]@O8888@};/:'`|%noonnnnoooooonnsssnnnsn%snsnnnno%8%nnnoaoannnnaoaoaoaaaao8aaa8aaooaaaaaaao8aaa8ea88a8a888a8aaaa8aaao8ao8aa8a8aa8aa8aaanao8a8o8a8ao8a8aao8o8o8ao8o888a8
+::!:.:;"`:;c/??\:!!/'!!!!=;':`    "?\::"|`/|'` :;/c%nnj[|`     `   ` .```'':'.:::;;/|cc%88j[\!|%c!]j=!=%%%%|. `           ` ``.;!:;;]%jjO88888j/`` `|%nnssnnnnonooonnsss%%%ssnsssssnonns%onn%noonsnnooooooaooooooaaao8oaaaaa8a88a88aa8ae8aa8aaa8ae8aaaeaaaoaaaaaaaaaaaaaaoaa8a8nannnoao8nooa8a8oaaa8aaa8o8a8
+::/:::!.':;/':::;!!:`:c!!!"`      ;;!:::;;!'`.:|]nn%%%n[:`            ` `;''':":!!=[|nonj{%;=jn|!|j}||%=c%c|;; ```      ``.,:;:::;;|jj88888Oj8j[` ;;]nn%nnnsnnnnnnnssn%%snnsnnsnn%nnnnnnononoooooooooaooooaoaoaooo8nao8aaaaaoa8a8aa8a888a8a8e8ea8a8a8a8a8a8aa8o8a8aa8aao8o8aa8aaaoooaaan8ao8oaoaaaaaa8ao8a8a
+::':'````::':::;;:;;,:!=;'''.`   `/=;::''!/`.;|%n8%o%c%]|'        `    .:`.',:.;?|]j[}j8%jn%%?%||jjj?|=%%%%cc%|.`        `:::::||c%8888%jn7??;%|,/{%onnonnnnnnnnnn%%%%%s%n%nnsss%nnnnoonnnnnoooooooaoooooannoonaa8no88o8o888aaaaa8a8o8o8a8a8a8aaaaa8aaaaa8o8aaa8oaaaaaao8nnaaaa8oao8n8aaaa8oa8o8a8aa8aa8aa8a
+!`.:```.``:.::.:::!::;!:::.,:``  :]}%|``./:.!%%s8jcj@j!'`            `.````  `:";j8??8j|8nn[]|c]on8j||=cccc%%c\` ``` ` ````::""/?//????nn/::!\\|%%ssnnnnnn%snnnsnsnsns%s%s%snnnnsnn%nnnnnnssnoonooooonnnnnoooooaooaaoooooaooa8aaaa8oaa8aeaa8o8a8o8aaa8a8aa8aa8aaaa8oaaaaoooaaaoon8noooaaaao8aaaaaaaaaeaaa8o8
+``''````'.-::::':;;'!!::!:::-:``.|?]j};`..::/|]%j8}j8%%;             .``...`.` 'cjjc]jnonnjo8}jj@n?\%!!%cc%%%c;.`.``  `.'`````````  ` :|%/=;/|jcsn%nssnnnsn%nnnsnn%snsssnnsnnn%n%n%s%%onsssnnnnnnnoononnnnonnnooaoaaaa888a88aaa8aaaaaaa8a8aaaa8ao8o88nnoo8naaao8oaoaoaooao8naao8nno8a8aaa8aoo8aaaaaaa8aaa8o8
+'``````````:':::::::;!:::,::``` '`:/7?|:.;\|%\/%n{8n{[=:`       `   `.`''/:` .`:{n\:jn8%8jjn88OO8j|j|==ccc?\""``` `...`-.:;;;;:;:;;..::]nn}%%nnn%%nssssn%nssn%%%ssss%%%s%nsnnn%n%noonnnnsnssnnnnsnnnonnnnnnnnnnooooooaaaa8aaa8aaaaao8a8a8aa8}?7?7[[]%%%%%%%%jjjn8o8oo8o8aaoao8onoaooaaaeaao8aao8eaa8aao8o8aa
+ `  ` `` ```::':!!::;::::,.`..```.:``````/%n%%%%nn[[%c=;           ```:`.` ..:`\%{[/78c{jj%|?7888oo8j}?/":```    ```....''"/?%|||c=!!:./nnn%on%\|!=!%?%nns%n%ss%s%nnssnsnnsnoonnonn8nnnnsssnssnnnnnnnnnnnnnonnnnooaaaaaa8a8a8oaa8a8aaaa8o8}[=c==!/"??%%%%%%s%%%c?{naonaooaoaoaoaooo8oo8o8aoaaoaaaeaaaa8oaaaa
+` ` `.'`` `'`.':;:`:;;::::'..:...` `    .:"?!c!=%?%!"\:!:':`:;.`. ` .`':``''::''?j%jj%cj88}cc%??8j8oo8;`:``    ` ` `.`''':-:;;/?!cc/..:/]nnn%cc;===!!c!/??%%%ns%s%sss%sssn%nnnnnaonnnnnnnnssnnnnnnnnnnnsnnnnnnoooaoaooaaaeaaaaaaaao8a8{[[|%cc=c!:     %%%%%%%cc=c=%joooaaoaaoaaooaooaoaaaoaoaoaaaa8o8aaaaaaa
+   ````...``.'.:;:`::/!!:::::':::`      '=|%%c;==|?/`   `````"'::::::;\:::::::``'?%j@[%jj@jjj%cccnj]jj8|``     `    ` `-'''.`":::;!:`` `'!!%%c\;c=;!=!==!;;;!%=%%n%s%s%ss%nnnsnnnnoooonssnnnnnnnnonnooonnnnnsnnooaooaaaaa8a8o8aaaaon[?cccccc=c=;      =c%c=c=c=====cj8naaanaaoanoooaa8n8aa8oaaooaooaoaaaaaaa
+ ``..`::.```.``.::''::'::::.`'`::`.. ````\%%%?\;:``````    ` ``"\|/!/:;||;::;||;;:/7??jn8OO@8j%nsnn/?77}`              `-``':.`::!!!:::;/\c%8%|;!c=!!|!!!!cc=!==%?\%s%sssssnonnnnnnnnnnnnsnsnnnooooooonnnonnnnoooaoaoaoooaaaaoaao8}|!=!==!======:...;/%=======c======{ao8aoooaoaoaoaaoonoao8oaoao8aaaaaaaaoo
+.``.','::'`.```':'''''-''``'```````'-```:://``````::..`'.....:'':\||;,:/c?\:=%%%=!!!;;%j88888o8%no8[|;.``        `     ``'./=%\:''::===!;;|/%??=c=c\;cc==!!=!c=c=;;!%%n%nnsnnnnnnnsnss%onsnnnoaoaoaoaoonnnnonooooooooaoaaaoaaaaan?!!=====cc====;!!;;!====cc=====!=!==?oonoooaoooaooaao8n8oaaaaooannoaaaaoaao
+`.'.::::'`.:`````.``'-'''.`..```` `''`..!:`..'`  `.`:':::::;;;;,'"||?=%|["!|%s?\\::!!|=%{j888888on%8OOj`                 `.:=n%|:::;|]jj8jjj8|!!c%%!==%;!c!==c!c="=ccn%n%s%sn%nn%sss%nnnssnnnoaooaoaaaaonnnnooooaaooaoaaaaaaaaan?!!==!===!===c==!=;;;=!===========c!=!{on8oaoaaaaonnnaoooonaaaaaoooaooaoaoaa
+`:::':::''.:```.`.`````''.`''```   `:.'``.-'.`````...`'`.:;=?;|=:./!!?||7n/=c!c;``:::"!=c%j88%8%8[?j877:     ` ` `        ./%%|%]%ssjO88nnj?"\:\c%=cc=%|:=c====c!:%%c%%%nnnnsns%ns%sss%%nnnsnooooooooooannnnoaoaaoaoaaoaoaaaa8o[!:!!!!!!!=ccccc%=!=cc=ccc====cc===!=!!=]oonaaaooaanoanoaaoaaaoaoaoooaonnoaoo
+````.::'`.-:'`'````````````...`.'``.`......``'.```':::.::!:];]%%]|;/:,!?%=cc|\=/!/`'::;!;?%j%8n8%%jj}"` .   ````' `       `/cc%no8n8888888nL::;=%%%c!c!%;";c!=!|:;c===%%%ns%s%snss%ssssnn%nooaooaaoaoaoaoaoooooaaaonoooaaaaaa8}!:!!!!!!!=c==cc%%c==*=c=c===c%%!!c!=!!!==?naaooaaooo8oo8aaaaaaooaoaoonnn%%nn{
+````':'```''`.`.'``````'.`````````````````.`'`...''::::;:::!c=%c%%%%;_'/[/!c?c;!:` ` :!=c;?%%nno88njj,  ` ```` .          :/%nn8n88888888nn[::;!!%cc==;%|::|!%?":c==!:\c%nssnssssss%%s%nsnsnnooannoooooooooooaooooaoaoaaaa8aan|:::;;;!=!======%c!=!=*=c!c===cc%%!=!!;=!!=?nnnaoooooooooaaooooaoaaaann[\=%ccc
+````'':``.::-..'````.'..`'`.``.```````  ``..'-'''-'..::::!;;!!=c!cc!==\`"?=[/=|;'``   ``:!;!%?nn88888j,...`',`` `       .;]%oo8o888888888OO['`'"!\=c=c%!c\!|c!:.!=!=:``!=%n%s%%%sssnss%ssssnnoonoooooooooaooooooaooaaaaaaaooan:':::;!;;!!!'!!!!====!=====!!=c!\!===!!==*=!]ononoonoaaaaooaoaaoaooan[%;c=cc%=
+:.`.'-'..''```` ```.'```````..````   ` ``.'-:..:::::;::::;;;:!\/\!!!!!/:,"?[%||\:;!;.` ```:!!!?{j888888;.`` ` ` `     .\|%no888O888888888a8;`.    `'?%%[c!!;=/`:!=!"``:!=%sssnsn%s%%%s%n%sssnnnnnnnnnnnnnnnnooooaoaoaaooooo8n}:-,::::;:'' `'::!!!!:!=!=!!!!!::;!\!;c%==!!!!{aoooonnnooaoaoooaoaan{%c=%ccc=cc
+::;:``:'````  ```` ``````..`````````````..'-,':'''::;:;;:;!!:!::!::;!!:::::"?n[!!=!!=: ` `:`:!!%snn8888[:         `  ` \%n%on8888888888888}"`'`   ` `"?c%c|!!:`:;!!' ./c!c%%n%%s%s%s%s%n%ssnnnsnnnsnsnnssnnnnnnnnoaoaaaoaonao[:`':::::::'  ``:;!!!!=!!!:;:::;;!!:|c====!!!!c}oono%nnooaaaoaaoon[%%===%!=cccc
+'';'````'.`````````````..````````````..```'--,'-:::!::;;=!=!;;::;:;;:;;;::::"?};!c==;:`    '::"!??7j888j|.        .`   '%c%ono8O8j8n8jj7?""`  `::..... `'""\!:.`:``.;!!!=!%%%%ss%ss%s%s%nnsn%nssnsnsnn%snsnssnsnnooooonoonnnn[``.,::::;:.   ```'!!!!:::::;/!!!;;c%c===!!:;==!{onooonnaanoaoon[[=====!ccccc==
+'::::::;;:. `` `` ```.'......`'````.''.....--::,::::::;!!!===!!;::!!;;!\;::::;;!!=!!"`      `:`::"!%jnn8|:      `''     "%nonn8j77"?""`  .'` `.`:'""\!::: `.;'`  .:!::!!=!!/%%s%%%%%s%%sssnssssnnsnsnsnssssssnnsnooooonnnnnnn}; ```''''``    `'-':'::;;!=/":;/=ccc===/!;!=!=!/]nonnnaooaoaa%|c!;!====c!c=ccc
+'.!:'`:::/:````` ````.'...''`'.'-''','''``,.::-:':-:!!!!=;=!/!;;:;;!!=!|;==\;;;=:;!:`        ``` ':!]{%n?'`    ``:.     `"]nsn%c" `   ` .;:.`':!!\:':!!==\:!=; `.''-.';;=!::/?%%s%%%%%s%s%sssssnssssssn%n%sssssssnnnoons%noooo};___;|jc;  ` ``....:;!!/"::;|====!!!!:;|cc=!!!:/]nnoaooooaon[=!c=*====!%%c!==
+`'````';;;:.`   ` `.'..``...,.--''`.``..'':,--:-:'':;!!!!=c=c!;::!!!!!c=c=cc=c!!;::`        `  ` ``:!=%!;` `   .'::`  `...:?%n?`       .!!;,`':;!!!::;!!!cc!!\  .:''`:;!!!;!!!=%%%%%%s%ssssnsnnsnsssssss%s%%ssssssn%nnnnnooaoaao8aa88o8L.   `.::::"':',;/=c!=!!!!:;/c%cc=!!::;==?snnaooooa%c!===!====cccccc!
+ `` ``:]/\:: `` ``.-''`..'.''-'-'.`.'.','-'''',:,-,:::;!=!!=!=!;;!==ccc=c%%%c!c=!::               ``/!!\:``    ``::' ``:::'/??`       ':;!!:  `':::;;!|c=c%[;; `:```.;!!=;:!;!=!%%%%%%%%%s%ss%snsnsss%%%%s%s%s%sssnnnoooooooaoaoaaaoaaao\`   `````.::;=!!!!/!:::/cc%%c=!!;;;!=*!!]nonoannn%==!=cc====!c!c===
+.   ``'\=!:`` ``.,''.,''--:'''--..`''-':'.``'-::-:'''-:::;!!!!:!!/!=c%%cc%???%%!!!`          `     ``':'''`     `::`````::;!;\;   .` .';!!;:` `.:!=?!!!=!c%%%;  ``':;!=!!!:;!=!=!%c%%%%%s%%%%s%%s%n%snss%s%%%s%snsnoaoaooaoooao8aa8aa8a8/ .``..:::!!!!:!::::;/=c%====!!=;====**==!|nonnnnn%=!=======c=cc==c=
+`` ` `!?\'``  ``'-'.''-'.:''''-'.-'''-''`..````'--,'.,:::::!;:::;!!::|%%%%[||=%%[/;.         /jL.  ..`` ` `    ``';.`.':;!=\;!?: `::``::;!=;: .;;:;;!=!===c=%/`    `!!!!!!!!==!=!=%%%%c%%%%%s%s%s%%s%s%s%%%ss%nsnnnooaoooooaoaoooaaaoao[`` ``':::''```::;/===c===!=!;cc%%c!=!**!!!!?%onsssc!=*!=*=====!c===c
+  `` `'"!`` ` ```.`.````:-'''''.'-,:'''''``````'-:'''`.`:':!;!::;;!!!:/?c?[{%%n%%c=\,       :]n8| .``        `.'.:':.`:::::c[!;|;..;``.!:':':::`::!!!==!=!!c!\     .;!!!!!!!!;=!!;/%ccc%%%%%%%%%ss%n%%s%%%%%ssnnnnaoaaaaoaaoonaaaaaaa8j\'........:;;;!!*===========cccc===*==*=!*!*!?{nn%%cc!!=!==!===c=====
+ `. ` `.!``  ` ``...``''''.`..``'::::,'...`` ``':''''``'`':!!!::'`::\|/!;=%%n%nn%=!c/`    .\jo8}! .``      .;]c|;::'`.':!!!!/!c=%|;/'````'.:'```.:!!!!!!!!c!c!    `''''`````.::;!;!;!%ccc%%%ss%s%%s%%s%%snnnnnnnnnooooaaaaooooaoaaaaa}\'.``'::;:!!!!=*=!!=*==!===c=========****=!*!*!!%%%c!=!=!=!=====!%==c=
+``,`   ':` `  ````..`...'.'.`.''':'-:;;.````.`.-::.````..:::;\;::!!=;||!::':??[?]%;"%`  _|joo8?" ` ` _,:/'.:"!|?8['.'``'!%!':;!!c%}|`` ...``..  `::::;!!!!!!=:   `...``   `::!:;:!!;;;c%%%%ssssssss%%%%%ssnnnnnnoooonnnoononnnnnaaaaj\:,'`.::::;;;;:;;*!=====c==c==c==c===**=*=*==**==!%%==!=!=!=!====c==c=c
+`.!`````'`  ````.''``'`...'```''-:-::!!|:....'-::;'``'.::'::/?%|,':!%[]%?!||;;!!=%%/:`./%888j[__.;|/!?=!||,`'::c"`''..``::;;,:!/"``````'```.:``.`-`':::!::;!!:...'':;;\\:.`':;:::!!!!!%%s%sss%s%%ss%s%%ssnnsnnnnnnsnnnnooonnnnnnooo}\:--'::::!!!;;;;!!==**=*=======c=c=======*===*=*!=*!==!=!!===!======c=c=
+'```  ```  ``....'.:..```.'.``'',:`':!!"':.:''':;;,`.:;:'``'\|/?%|;|;"\c\c?=%==%;;=!:::cna8O888}|%%%/:""78j/;/]/```':.:.:!/\!!'`    ````` `''```````:':::::::::::::;::!!!!!:;::;;:!=!!%%ssss%s%%n%%s%sssssnsnsnssssssnooonnnnnoooo[:--,:::;;;;;;;;!!!******====cc=c=c=c=c==*====*=!=*=!=!=!!!*=!===========c
+```  `:.`` `..''''-,'`...'.``.','`'':;;:''":::::;/!.''"``\\;:;|[;""?":'''":":"":/!%|;!=c?j8888n}!%c%[:.::?88|/```...::;:;!;:/"```         ``    .._;:::;!!=!!;::::,"!!;;;!;;:!;;!!!!!=%%%nsnnsss%%%%%s%ssssnnsssnssssnnnooonnooo}|!:::::;;;^;;;;!!!!!*****=*====c=c=cc========!====*****!*!!=!!=!====!c=====
+ ` ```` ` `'-''.'':''--.`````-'````.':!::.''..:;%\;`` ::.``"""\?}%|;;,. `  `````':"\%c;"?jn8a8oj==!!%\':!!{O|`` ``:::;!!;!'`   ._..    .;;;;;;;|;;"?%c%;!c;!/:'!;!!\;;c!c==;;::!!!!!!!=%ssssssn%%%%s%%%ss%ssnsnsnsnsnsnoooonoon[\;;;!;;;;;;;!!!!!!*!******=*======c===c=c=========*==*=**=*=!*!===!=*==!=!==
+  ` .``` .-''''..,'''.'..`````.``````':::..':,'/=cc:,``\\: `..`"/|]jjcc|;,.  ... ``'"\c::??n8%%%c!;\|\;;/:?7\. . `:"!;\:` `   `"?%%|]jjnj8888o888jL,'"\cc!===;::;!!!==!=!!!!=;;:;!::!!=c%snssssss%%%%%%%sssssnnsnnnnnooaonnnn[?!;:;;;:;:;;;;;!!!!*!*******====c=c=c=c=c==========*=*+*+***!!**!*!==!==!c===c
+` ``'.```,'`''`.''-''...`.```````` ` `.'::::.'!://:/]|:``"\.``..:"\%%%%{%%||;:::::::.::: `"jn8}?;\{no[]8@j:::..`'..`""'`       `:?%j8j}?%jn888888O@j: `:!c====|;;!!=!!!!!!;=!!!!::::::!=%%%s%s%%%%ccc%%%%%ssssnsnnnonoooono%|!:::;;:;;:;^;;;!!!!!!!!!!*!**=*=====c==================++*****=!*!=!!!!===!=cc=
+`` `````''.`.'.-`'`''.'.-...``  ` `   ```':!;::!!'::/|:````":` ```"!;%c%c%%%%cc/!;;;:::``  "7?:\|jjo}\/?77\'`'':'::!'`       ..'``"||jj8j88888888888[.  `"?%==c%==;==c!=;!=!=!!!!;::':!=c%%x%%%%ccc%%%%s%ssssnsnsnnnnnoonn[\!:::::::;:!;;;;:!!!!!*!===!=*=**===c===c====c=c==========*+*!*!!!!!!!===!===c==c
+``  ` `:```..`''''''`.'''.```'.` ``     ```'!!!:`''::::,```:-:.. ``::':!!!c|[]%n%===.`'`    `./]n88o}[/'"` `...:;'`         .`'` :?{{jj7?=c%888888on%:`   ``""=!\!==!!!!!!;!!!!;;:::::!==c%%s%%cccc%%%s%%s%ssssnnsnnnnno}\:::::::;::;;;;^;;;;!!!!!!**!***!==*====c============**===*=***=!**!!!!!!!=!=!===c=
+      ``....`''..`.`.''.'-..'.'..```     `.``"\:` ``!!!!:...::::'.`...:;=%!%c=|\?c!!%;.     ';=%nn%n88j[` .`.::"`           `` ```"""\;||c?jj7j}j8jn|;.       "!|:!!!!!!!!!!;:::''``.:!=c%%%%%%%cc%%%%%%s%s%ssnnsnnsnn%[!!;:'::::::;;:;;;;;;;;;!!!=!**!=****=!=====c========*===*==****!*!!!;:;!;!!=====!===
+`  ` ````'''.....`...,'':''.``.:''':.```  ````'```  `:!!=;:::;/\!:;::;!===c=;;/:':'"!?|.   ```:"?7jo888@|;``` `                   `;|!!/:":/!!/\c%n[!``      ` ::!.::::::::'````   `';!c%%ss%%%%%%%%%%%%%s%ssn%%nssss%?!;::::``.:;;;;!;;::;:;;!!!*!!!!****=!*=!==============+*===*=+=*=*=!!:;====!!!=!!==c!
+  `   `````.'-...``':'''::-..'-``.:'::;..`  `.``````` '::::'''':::::::!"\\!==c\\;;;:,'"\`     '` .:??7888j/                   `    ```:`.. `':""''"``     ...   `:``   `    `      ``'!!%%%%%%%%%c%%%%%%%%%%s%ss%n%%?\;;::''.:!!;;;!;;;:;::;;:!!!!!!!!*!!!!!!*=*========*=!=*=****==*!!!!!::;!==!!!!!**!=!!=
+`    ``````''`..``.'-'.::'':.`'..:,:':::'``   ``-.-.``'.::;;;:..`````'''::!!!!===|!=!;,`     .. .,:;;::78@|`        ` `  `          `  .;||;_.  .`'` `.....```  `   `            `  `'::""\?%c%%c%c%%%%%%%s%sn%ss%?\:::::'.:;!;:;:;:;:;;:::::!!!!;;;;!!!!!!!!!*!!*====*=*****!=!****=**!:::/===!!!!:;!=!!=*=
+ ` ` `` ```'`..``.'`-':''.',:..''':::::..```   `'.`::```'::!!!!;.`   `` ` `'::::;;!!!!c:.    `:::!!?[;!!]8j/     ` ``````````` ` ` `.``'"\777?"\\c|jj|]}jjj[[||;;|||||;;:.`   ``    `.`    ``"\=ccc%%%c%%s%s%ss%?\!;::''..;:::,:::::;;^::;:::::!=*;;::!=!;;;!!!!==!=*=*!*!!****!!=*!!!:::/=*!*!!!!;:::!!!=!=
+ `  .````.'`...`.``...'.'-'.:;:-:'':::!:-`     ``:.``:'.```::!!c||;:,..,.:.::::;/!;;;;;!: ` .::.``:"!!!==?}:.  `  ` ` ```.'.`.`` ``` `````!:"%;:!%nn88onn88oaa8onsnnnns%c;:`  ```` ````       :cc%%%%%%%%%%%%c=\!;;;;:..:''':::;;;;;:;;;;:;;;;;::!==;;!!:;::;!!!*!===**=!*!!*!!!!=!!:::;!==!=!!!::::;:!!;!!*
+  ``:..```-'-'....``.'``'`',,:'':::::;::''.'`  ````.``'-````':"/\!%!!!==!;\/!cc===c=!!;;;.   ``!\\:::!!c!c::```  ` `````.``````````````` ``: .}n8n8n8jO88j888n8n8n8nnn{%?!:.`````` ` ``   ```:\%%%c%%%cccc%=!!!;:;;:;:..::;;;;;;^^;:;;;;;;;::!!!;::!!::!::::;;;!!!!!!!c!!=;:!!::=!"::;***!!!!!!::'::!;:!!!!=
+`  `.`...-,':::.'...`....'-:-,:,'::;;::,-,-``    ``:.``'-` ```'-::;!!!!!!!!!!::;!:!!!==c!;`.`:,`':!!=\;!!!;`     `  ```````````` ` ` ` `.` ````"'"''````````'```````:```````  ``````...'```` `/%c=ccccc=c=!!!!;;;;;::::;;;;;;;;^;^^;;;;:;;;;;:!:=;;!!::!;':;;;!!*=cc=;""=!::::'!:':;==!*!!!!::':::;:::::;*!!
+  ` '`.`'-:,,..::.-,,'.',''::::::::!!::;:''..` `  ` ``````.` ```:'':::::::::::;:;!!!;!!!!:`\;."\:::!!=c!=;;;`      ` ` ` ``` ```````` ` ` ` ` `    ` `  `   ``.`..`.......```''-''''''``     `;c%c%cc==!!!!!!;;;:::::;;!;;:;;;;;:;^^:^:;;^;;!!;::!=::!::;-:;;!!!====!=;::!:::':::;c=!!!!!::::;;!!!;;::::;!!=
+   `.`'-'-.;:-:,:-:':'.''':'':::::::!;::;:::'` `   ``` `````` ` ```.''-':::::::::::;!!!!!.`!!;;!=!\/;=!!c!!:   ```...`....`.`````````````` ``  ` .  ``..```:.''''''--,...`....':''```        `:c%cc==!!!!!!!::::`'::;:::::;:;:::;:;:;^;^^^;:;!!!;:!!;:::::;!!!!!***==!!:`::''.:;==!!!:::;!!=!!!!!:^:::-:;!*=
+ ```'.''``'':'''-'.-'''''''''::,---:':::::''',```   ` `` ``    ` `````.'-,::'::::':::;!;:;`:;!c!===||!=!c/:  ` ```````'':':::':::::;:::'::::::!::::::!;;:::':...`.''''```` `` ``  `   `  `   ./c=!!!!!!!!!:::'````''':''''``''''':''::::;;^;;!!!!!;!!;:`-:!;;;!===*!!!!:`'.`.;!":::;;===!!!!!;^^:^:::--::!*!
+   ```''..''..,,:''`...`.'.'..'-,'''-'..:::::,..` `` ```````'. ` `'':-:-:--:.:--',:::;!!!`.::!!==!!;=%==!/`        ```'``'.'':`''::'::-::!!!!:;/\/\/?/?\/""`````  `  ` `  ` `````````` ``.:;/c=!!=!*!::':'::'`` ..::::::::;:::;::::':::::;:;!!!!**!;:::.::;;!!===!=!!!::```::::;;;==*=!!;!;;^::;::::,'::!**=
+`` ` .`.'.'.:-:'--.''.'`````'''':..''''::,:-''''.`` ` ```````.`````.'---,','''`''--:::::`.:;:!!%|!!!=%c!!=`     ```````````````.```.``````````````............```` ````.```` ` ` `  ````:;=cc=!=!!!::::'`'''``.::;;;;;;;;;!!!!!;;;::.'`:::::;;!!!!!!!:''::;;;===!*!!;::'`.''::;=***!!!!!;;::::::::-,---:*!=!
+`````````''',',:''.--,'''`````.`'':',.'`.-''''-..````   ```````` ```''''':-:'''..'::::'`.::::'!!|'!!!==!:"` ` `` ````````..'''''-,,:,:':...:.:::;:;:;:::;:::,'.``.````````` ```` ` `   .!=====!!!:;;:'``     ``:':::::;;:;:;;^;;;;;!!;:.`'''::!!!!!!!;:::;!!=c==!!;;:::``.:;!!!!!!!!!!!::::::::::-''''':!!!!
+````````.'.'-:::''`',-'`.```````.,,-:'.'``.''-'::```  `  `````````````'`-----.:::::::'..:::::;;=/`'!==!!:  `````````........''':----:::::::;;::::;!!::;::--'--,''''''...``` ` ``.,    `'%c=!!!!;::::!;:.. ...:.::,::::'::::::;::;:;;;;;!;::.``':::!;::':;;;===!!!;::::`.-:::::!:!;:;:::::,::,:,--''''.:;;!!c
+```````````.`'`':,.``:,.`````.`''----,-:.......'''..``    ` ```````````'''':'':::;;:``'::::::!!!\:::!=!:`    `  `````..''--''-'',,,,-':':::::::::::::::'-,,,'--::,----'-''.,;;/c%\`   `.:!!!!!!:...,:;!!;:::::;:;:;:::::,.,`'''::;:;:;:;;;;;;::.````:::;;!!=!!!!::::'``....`'.''`'':'''''''''''''''..:::;;!!
+```` `.``'.'```````...':-.``````'',''-'::`'::.::'::'`` `   ``` ``````````'''.'''!!;:.,''''':::;!!:!;=!!`           ` ` ```````````''''''`':::::::'''''`````````` `    `  ``'\%%%c=:    .|::::::;;;!!!*!*!!;:::::::::;;;:!!!;:::,.'':::::;:;;:;;;:::::;;;!==!!!;:::'`..::;!!!!!!;;!;:;::::::::::---''':;;;!!!
+```` ```.`.````` ```````'''` ```.'```'''::,':;::':''.`     ``.```````````.'`````''''``.-':.-':!!;;!!!'`              ` ` ` ``` ` `      `   `..:::'` `  ` `        `       `'\%%%/:    :\!::::::;!!!!!=!=!!;::::::::::;;;;;;;!!!;:;:::;;;;;!;!;;=!=!===c=!!!!:::,'`'''''::!:!!::!::::::::':--'-''``.:::;:!!!
+` ` ```'..'`.`  ``` '```.`.'````````.'.,''::,:::--''-``    ` `.``` ``````.``` ````..'---:::::!!;!:!!"            ` ` `  ` `                  `':;:`                       ` ``'""``   `.:''``''::::;;;!!!!!!!!!!!==*!!!!!!!!!!!!!!=!!!=!========!=!=!!!!!;;::::'``.'::::::::::::::,.,.,.''.'`'.....'::::;;!!
+'``'``..-''`````.``...```::'`.````.`''::'.`:::::-'```` `      ``` ``` ``..``     `.`''-':,::!!=!:;;'           `    ` `    ` ` `            `.'/!``  `      ``  `    `         `'.`.:::-:''-''`'':::::::;;;:;;;!!!!!=!=!=!==!=!=!=!!!=!!!!!!**!=!=!*!!!::::::-'``.'::;!!!!!!!;;;;:;;;:::::::::--''-'-,::::!!
+.```....''```` .``..::``-:```:.`:.:'``,..'''':'''..`` `      ` ````  `````` `   ``''''--::::!c!:;!` `            ` `  ` ` `      ` ` `       `````        `   ` ````            .::!;;::':::::::::'::::::-:::::::;;!;!!!:!:!!!!;;;!!!!!!!!!!!!!!!!!!!;:::,,,''``.'''':':':':''''':'':':''--'''-''.``':::::!!
+``'``..-````..```..'::.`.'```:`.`:.'``':::`'..':'''`` ``` ``      ````  `` ` ` ` ```'..-'`:;!;:!:`            ` `  ` ` ` `   ` `  `         ` `..` `       ` ` ` ` ` ` `` `    `:;;;:::,'```````````'''-':':':':'::'''`:':''`'`''`'''''''''''`:':::::::::::-```.:::;;:;;:;::::::...`````````````````'::,::;:
+``....''``.'``.``'.,:;:`.-``...',!:```,,:::.:,:`'````` ``` ```` `  ` ` `` `  ` ` ` `````.,::::'``          ``  ` ` ` ` `  ` `  ` ` `      ` ``:!":`     ` ` ` ````` ` ` `  `  .:;;;:::,'.'`.``....'''`.``...`...`.....,`.``''...`.`....'-''-'-..`'''`'''''```.:::!!;:;::;:;:::::::::,:::.'-...```````'',,::;
+``''--'..'''`.'...`::;:``.`.:'`:!!;``''::::!' ```` `  ``  ```` ````  ` ` `` `        ```.::```           `    `   ` ` ` ` ` ` ` ` `  ` `   ` ````` `  `      ``` ` `` `` `  `.:;:::;::::::'.......:.:::;:;:;!!!!!!!!!!!!!;;:::::.::.,,,''.`````` `    ` ````'''':':':::':':::-:,-,--,'-':''''```````..''-::;</pre>
+  </div>
+  <script type="module" src="renderer.js"></script>
+</body>
+</html>
