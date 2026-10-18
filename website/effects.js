@@ -56,9 +56,9 @@ function start(A) {
     const similar = [];                            // for each glyph id: ids with nearly the same ink
     for (let i = 0; i < 95; i++) {
       similar[i] = [];
-      for (let j = 1; j < 95; j++) if (j !== i && Math.abs(A.state.tone[i] - A.state.tone[j]) < 0.035) similar[i].push(j);
+      for (let j = 1; j < 95; j++) { const d = Math.abs(A.state.tone[i] - A.state.tone[j]); if (j !== i && d > 0.04 && d < 0.14) similar[i].push(j); }
     }
-    let phase = 0, next = rand(4000, 8000), r = 0, c = 0, orig = SPACE;
+    let phase = 0, next = rand(2500, 5000), r = 0, c = 0, orig = SPACE;
     return (t) => {
       if (t < next) return false;
       if (phase === 0) {
@@ -71,15 +71,18 @@ function start(A) {
         }
         if (orig < 0) { next = t + 1000; return false; }
         owned.add(key(r, c));
-        A.setId(r, c, pick(similar[orig]));
-        phase = 1; next = t + rand(350, 600);
+        A.setId(r, c, pick(similar[orig])); spark(r, c, t);
+        phase = 1; next = t + rand(450, 700);
       } else if (phase === 1) {
-        A.setId(r, c, SPACE);                       // backspace
-        phase = 2; next = t + 140;
+        A.setId(r, c, A.BLOCK); A.setGlow(r, c, 1);   // cursor lands on the mistake
+        phase = 2; next = t + 160;
+      } else if (phase === 2) {
+        A.setId(r, c, SPACE); A.setGlow(r, c, 0);     // backspace
+        phase = 3; next = t + 110;
       } else {
-        A.setId(r, c, orig);                        // retype
+        A.setId(r, c, orig); spark(r, c, t);          // retype
         owned.delete(key(r, c));
-        phase = 0; next = t + rand(8000, 15000);
+        phase = 0; next = t + rand(5000, 9000);
       }
       return true;
     };
