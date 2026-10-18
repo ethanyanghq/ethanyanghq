@@ -14,6 +14,7 @@ const FONT_FAMILY = '"DejaVu Sans Mono Web"';
 const FONT_WEIGHT = 700;
 const ATLAS_COLS = 16;        // 95 printable glyphs in a 16 x 6 atlas
 const ATLAS_ROWS = 6;
+const BLOCK = 95;             // spare atlas slot: a solid block (caret)
 const INK = [0xe8 / 255, 0xd9 / 255, 0xb5 / 255];
 const BG = [0x14 / 255, 0x10 / 255, 0x0a / 255];
 
@@ -124,7 +125,8 @@ async function main() {
   gl.uniform1f(U.uGamma, 1.45);
 
   // ---- layout + atlas (rebuilt on resize, since the device cell size changes) ----------
-  const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(95) };
+  const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(96), visible: { row0: 0, row1: 0, col0: 0, col1: 0 } };
+  const layoutListeners = [];
 
   function buildAtlas(cw, ch) {
     const a = document.createElement("canvas");
@@ -141,6 +143,7 @@ async function main() {
       const y = Math.floor(id / ATLAS_COLS) * ch;
       ctx.fillText(String.fromCharCode(32 + id), x, y + ch / 2);
     }
+    ctx.fillRect((BLOCK % ATLAS_COLS) * cw, Math.floor(BLOCK / ATLAS_COLS) * ch, cw, ch);   // solid block
     // per-glyph ink coverage (used by effects as "tone")
     const px = ctx.getImageData(0, 0, a.width, a.height).data;
     for (let id = 0; id < 95; id++) {
@@ -149,6 +152,7 @@ async function main() {
       for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) sum += px[((y0 + y) * a.width + x0 + x) * 4 + 3];
       state.tone[id] = sum / (cw * ch * 255);
     }
+    state.tone[BLOCK] = 1;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -174,6 +178,13 @@ async function main() {
     gl.uniform2f(U.uViewport, canvas.width, canvas.height);
     gl.uniform2f(U.uCell, cw, ch);
     gl.uniform2f(U.uOffset, ox, oy);
+    state.visible = {
+      row0: 0,
+      row1: Math.min(ROWS - 1, Math.floor((canvas.height - 1 - oy) / ch)),
+      col0: Math.max(0, Math.floor(-ox / cw)),
+      col1: Math.min(COLS - 1, Math.floor((canvas.width - 1 - ox) / cw)),
+    };
+    for (const fn of layoutListeners) fn(state.visible);
   }
 
   function flush() {
@@ -200,10 +211,16 @@ async function main() {
     cols: COLS, rows: ROWS, data, state,
     get(r, c) { return String.fromCharCode(32 + data[(r * COLS + c) * 4]); },
     set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); },
+    idAt(r, c) { return data[(r * COLS + c) * 4]; },
+    setId(r, c, id) { data[(r * COLS + c) * 4] = Math.min(BLOCK, Math.max(0, id)); },
+    BLOCK,
+    visible() { return state.visible; },
+    onLayout(fn) { layoutListeners.push(fn); },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
     tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
     flush,
   };
+  window.dispatchEvent(new Event("ascii-ready"));
 }
 
 main().catch(err => { console.error(err); });
