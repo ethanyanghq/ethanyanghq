@@ -27,7 +27,7 @@ const IDLE_MS = 8000;             // at rest this long, the first word's cells l
 const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cogs, turning against each other
 const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
-const SLOW_WORD = "slowly", SLOW_X = 4;   // this word takes SLOW_X times a normal word's share of the scroll
+const SLOW_WORD = "slowly", SLOW_X = 8;   // this word takes SLOW_X times a normal word's share of the scroll, one letter at a time
 
 const bio = document.querySelector("section.bio");
 const fx = document.getElementById("fx");
@@ -136,10 +136,11 @@ function buildPlan() {
     const t0 = DONATE[0] + span * pos / total, t1 = t0 + span * 1.6 * weight[i] / total;
     pos += weight[i];
     const fly0 = t0 + (t1 - t0) * WORD_MARK;
+    const seq = weight[i] > 1;                              // the slow word: flights in sequence, not overlapping
     w.forEach((L, k) => {
       L.mark0 = t0;
-      L.fly0 = fly0 + (t1 - fly0) * 0.5 * k / Math.max(1, w.length);
-      L.fly1 = L.fly0 + (t1 - fly0) * 0.5;
+      if (seq) { L.fly0 = fly0 + (t1 - fly0) * k / w.length; L.fly1 = fly0 + (t1 - fly0) * (k + 1) / w.length; }
+      else { L.fly0 = fly0 + (t1 - fly0) * 0.5 * k / Math.max(1, w.length); L.fly1 = L.fly0 + (t1 - fly0) * 0.5; }
     });
   });
   // when every cell leaves: donors at their flight; the rest in tonal order with noise, earlier
