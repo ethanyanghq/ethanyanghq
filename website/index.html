@@ -26,14 +26,14 @@
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;
       background: var(--bg);
       color: var(--ink);
       font-family: var(--mono);
       font-variant-ligatures: none;
       -webkit-font-smoothing: antialiased;
     }
+    /* The page scrolls; scrolling drives the reveal (reveal.js). Everything on screen is fixed. */
+    body { height: 400vh; }
     /* Full-viewport stage. The art is centred and cropped ("cover"), never wrapped. */
     .art-wrap {
       position: fixed;
@@ -55,6 +55,47 @@
     }
     html.gl #stage { display: block; }
     html.gl .art-wrap { visibility: hidden; }
+    /* letters in flight, drawn by reveal.js above the stage */
+    #fx {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: none;
+    }
+    html.gl #fx { display: block; }
+    /* The bio: real text, centred. With the renderer running, each character is revealed as the
+       painting donates it; without it (no JS, no WebGL) the text is simply shown. */
+    .bio {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      padding: 0 16px;
+      max-width: calc(100vw - 32px);
+      box-sizing: border-box;
+      font-size: clamp(13px, 1.55vw, 20px);
+      font-weight: 400;
+      line-height: 1.65;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .bio h1 { font-size: 1.5em; font-weight: 400; margin: 0 0 0.6em; }
+    .bio p { margin: 0 0 0.7em; }
+    .bio p:last-child { margin-bottom: 0; }
+    .bio a { color: inherit; text-decoration: none; pointer-events: none; }
+    html.gl .bio a.on { text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; pointer-events: auto; }
+    html.gl .bio .l { visibility: hidden; }
+    html.gl .bio .l.on { visibility: visible; }
+    html.nogl .bio, html.nogl .bio a { pointer-events: auto; }
+    html.nogl .bio { background: rgba(20, 16, 10, 0.85); padding: 1em 1.2em; }
+    @media (max-width: 560px) {
+      .bio { white-space: normal; }
+      .bio br { display: none; }
+    }
     pre.art {
       margin: 0;
       width: max-content;
@@ -72,6 +113,15 @@
 </head>
 <body>
   <canvas id="stage" role="img" aria-label="ASCII rendering of the painting Homunculus Loxodontus"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <section class="bio" aria-label="About">
+    <h1>ethan yang</h1>
+    <p>product engineer, working on ai.<br>
+      currently building an rl environment for factorio.</p>
+    <p>reading <em>gödel, escher, bach</em>. slowly.<br>
+      away from the keyboard, i cook.</p>
+    <p><a href="https://github.com/ethanyanghq">github</a> &nbsp;·&nbsp; <a href="https://www.linkedin.com/in/eycyang/">linkedin</a> &nbsp;·&nbsp; <a href="mailto:ethanyanghq@gmail.com">email</a></p>
+  </section>
   <div class="art-wrap">
 <pre class="art" aria-hidden="true">%%%%%%%%%%%n%%%%s%n%n%%%%s%%]?!""::'''::``:':`'``:""%c=%%c=%%c%%%%%%%s%%ns%%s%s%n%%s%s%%%nn%nsnnnns%nsnnoaonnnnnanannnonoonnaoaa8o8nonnnnnnnnnn%%ssnssnnnoaoooonnnnnonooononnn%nnnnoo88aannnnaoooooonnno8nnnnn8nnnnoooonooooaaonaaooooo8a8oonoonaaaoao8o8o8ooooo8o8a8a8aa8a888onnaaoa8a8a8a8o8ooaaaoannaooaa
 c%%%s%%%csnnonnnn%n%%n%%%s?/:'```.`..:.'::.``::::-. `"\|%%c%%%%%sn%%%nsnsss%n%nnnnnn%%snnnsns%snonononnonoannnnnaon8o8a8a8o8o88aanoo8aoonoonnsnnsn%nnnonnoaoaonnaonooooooooooonnnnnnao8aannooaaaaoaaonooooaaaooonoaooooaoaaoaaaaoo8oao8a8o8on8o8ao88n8o8onn8a8a8a888a8a88o8aona8o8o8aa8ea8aaan8o8888on8ooaoa
@@ -170,5 +220,6 @@ cc?%c!%ccc%%%sc=c%c%c=!:  \!|/?=!::!!!]c!;;!%!!"`;/!"?[c\;|%c=c%cc%%%c%%%%%ccc==
   </div>
   <script type="module" src="renderer.js"></script>
   <script type="module" src="effects.js"></script>
+  <script type="module" src="reveal.js"></script>
 </body>
 </html>

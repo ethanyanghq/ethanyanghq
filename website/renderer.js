@@ -13,7 +13,8 @@
 // comes back asynchronously; until it lands ASCII.stale is true and flush() is a no-op. Without
 // float targets the <pre> grid is drawn scaled to cover the viewport, like the CSS fallback.
 //
-// A small API is exposed on window.ASCII so effects can change cells and re-upload.
+// A small API is exposed on window.ASCII so effects can change cells and re-upload, and so
+// reveal.js can tell the shader which cells have left at the current scroll position.
 
 import { loadAssets, createConverter } from "./convert.js";
 import { focus } from "./regions.js";
@@ -48,6 +49,8 @@ uniform vec2  uAtlasSize;     // atlas size, px
 uniform vec3  uInk, uBg, uHi;
 uniform float uTime;
 uniform float uGamma;       // >1 thins strokes to match DOM text anti-aliasing
+uniform sampler2D uGone;      // per cell: the scroll progress at which it leaves (reveal.js); 2 = never
+uniform float uP;             // scroll progress of the reveal
 out vec4 outColor;
 
 float glyphAlpha(float id, vec2 f) {
@@ -60,6 +63,10 @@ void main() {
   vec2 cellf = p / uCell;
   ivec2 cell = ivec2(floor(cellf));
   if (cell.x < 0 || cell.y < 0 || cell.x >= uGrid.x || cell.y >= uGrid.y) {
+    outColor = vec4(uBg, 1.0);
+    return;
+  }
+  if (texture(uGone, (vec2(cell) + 0.5) / vec2(uGrid)).r <= uP) {   // the cell has left
     outColor = vec4(uBg, 1.0);
     return;
   }
@@ -89,7 +96,7 @@ async function main() {
   const canvas = document.getElementById("stage");
   if (!pre || !canvas) return;
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: false });
-  if (!gl) { console.warn("WebGL2 unavailable; keeping the <pre> fallback"); return; }
+  if (!gl) { console.warn("WebGL2 unavailable; keeping the <pre> fallback"); document.documentElement.classList.add("nogl"); return; }
 
   // ---- grid data: the CPU mirror of the data texture ----------------------------------
   let COLS = 0, ROWS = 0, data = null;
@@ -119,7 +126,7 @@ async function main() {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link: " + gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
   const U = {};
-  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uHi", "uTime", "uGamma"]) {
+  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uHi", "uTime", "uGamma", "uGone", "uP"]) {
     U[n] = gl.getUniformLocation(prog, n);
   }
   gl.bindVertexArray(gl.createVertexArray());   // required for drawing in WebGL2, even with no attributes
@@ -143,16 +150,30 @@ async function main() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+  // reveal: which cells have left at the current scroll progress (1 x 1 "never" until reveal.js plans)
+  const goneTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, goneTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, 1, 1, 0, gl.RED, gl.FLOAT, new Float32Array([2]));
+  let revealP = 0;
+
   gl.uniform1i(U.uData, 0);
   gl.uniform1i(U.uAtlas, 1);
+  gl.uniform1i(U.uGone, 2);
+  gl.uniform1f(U.uP, 0);
   gl.uniform3fv(U.uInk, INK);
   gl.uniform3fv(U.uBg, BG);
   gl.uniform3fv(U.uHi, HI);
   gl.uniform1f(U.uGamma, 1.45);
 
   // ---- layout + atlas (rebuilt when the device cell size changes) ----------------------
-  const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(96), visible: { row0: 0, row1: 0, col0: 0, col1: 0 } };
+  const state = { cw: 0, ch: 0, ox: 0, dpr: 1, tone: new Float32Array(96), visible: { row0: 0, row1: 0, col0: 0, col1: 0 } };
   const layoutListeners = new Set();
+  const frameListeners = new Set();                      // called at the top of every frame
   let devW = 0, devH = 0;                                // canvas size in device px
 
   // the converter shares this context, so re-bind everything before drawing or uploading
@@ -160,6 +181,8 @@ async function main() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.useProgram(prog);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, goneTex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.activeTexture(gl.TEXTURE0);
@@ -222,7 +245,7 @@ async function main() {
     }
     const ch = cw * 2, oy = 0;                             // anchored to the top edge
     if (cw !== state.cw) { buildAtlas(cw, ch); state.cw = cw; state.ch = ch; }
-    state.dpr = dpr;
+    state.dpr = dpr; state.ox = ox;
     bind();
     gl.uniform2i(U.uGrid, COLS, ROWS);
     gl.uniform2f(U.uViewport, devW, devH);
@@ -276,11 +299,13 @@ async function main() {
   }
 
   // the canvas changed size: fit a grid to it and draw, all before this frame paints
+  // the canvas fills the viewport, so before it has a layout (display: none until html.gl) the
+  // viewport is the right answer
   function measure(entry) {
     const box = entry && entry.devicePixelContentBoxSize && entry.devicePixelContentBoxSize[0];
     const dpr = window.devicePixelRatio || 1;
-    devW = Math.max(1, box ? box.inlineSize : Math.round(canvas.clientWidth * dpr));
-    devH = Math.max(1, box ? box.blockSize : Math.round(canvas.clientHeight * dpr));
+    devW = Math.max(1, box ? box.inlineSize : Math.round((canvas.clientWidth || window.innerWidth) * dpr));
+    devH = Math.max(1, box ? box.blockSize : Math.round((canvas.clientHeight || window.innerHeight) * dpr));
   }
   function relayout(sync = false) {
     const f = fit();
@@ -294,6 +319,7 @@ async function main() {
   }
   function frame(t) {
     if (landMirror()) window.dispatchEvent(new Event("ascii-grid"));   // effects restart on the fresh grid
+    for (const fn of frameListeners) fn(t);
     draw(t);
     requestAnimationFrame(frame);
   }
@@ -322,6 +348,15 @@ async function main() {
     setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); touch(r); },
     visible() { return state.visible; },
     onLayout(fn) { layoutListeners.add(fn); return () => layoutListeners.delete(fn); },
+    onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
+    // reveal: per-cell scroll progress at which the cell leaves, and the current progress
+    setGone(at, cols, rows) {
+      bind();
+      gl.activeTexture(gl.TEXTURE2);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, cols, rows, 0, gl.RED, gl.FLOAT, at);
+    },
+    setP(p) { revealP = p; bind(); gl.uniform1f(U.uP, p); },
+    get revealP() { return revealP; },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
     tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
     flush,
