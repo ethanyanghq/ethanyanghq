@@ -18,16 +18,16 @@
 //
 // convertInto(tex, cols, rows) writes the grid straight into the caller's RGBA8 data texture
 // (R = ASCII id, G = 0, B = R, A = 1) with no readback, so a conversion costs GPU time only. The
-// percentile stretch is read back asynchronously and applied one conversion late. readback() /
-// poll() give the caller the same asynchronous path to a CPU copy of the grid.
+// percentile stretch is computed once, exactly, from the full-resolution luminance on the first
+// conversion (cover crops always keep a full image axis, so it barely depends on the crop).
+// readback() / poll() give the caller an asynchronous path to a CPU copy of the grid.
 
 const FW = 6, FH = 12;          // feature pixels per cell (must match bank.json)
 const NF = FW * FH;
 const NV = NF / 4;              // the 72 features as 18 vec4s
 const LOCAL_DOWN = 8;           // the local-contrast base is blurred at 1/8 resolution
-const SAMPLE = 256;             // percentile estimate from at most 256 x 256 samples
 const BILINEAR_VAR = 1 / 6;     // variance (source px^2) bilinear sampling adds; 96.8% match vs Python with it
-const UNIT = 2;                 // first texture unit used here (the renderer owns 0 and 1)
+const UNIT = 3;                 // first texture unit used here (the renderer owns 0..2)
 
 const VERT = `#version 300 es
 void main() {
@@ -133,19 +133,6 @@ void main() {
   float l = texelFetch(uLum, p, 0).r;
   float b = base((vec2(p) + 0.5) / ${LOCAL_DOWN}.0 - 0.5);
   o = vec4(clamp(l + uLocal * (l - b), 0.0, 1.0), 0.0, 0.0, 1.0);
-}`;
-
-// Point-sample the luminance inside the crop onto a small grid for the percentile readback.
-const SAMPLER = HEAD + `
-uniform sampler2D uIn;
-uniform ivec2 uSize;
-uniform ivec2 uOut;
-uniform vec2  uOrigin;        // crop origin and size, source px
-uniform vec2  uExtent;
-void main() {
-  ivec2 p = ivec2(gl_FragCoord.xy);
-  ivec2 q = ivec2(uOrigin + (vec2(p) + 0.5) * uExtent / vec2(uOut));
-  o = vec4(texelFetch(uIn, clamp(q, ivec2(0), uSize - 1), 0).r, 0.0, 0.0, 1.0);
 }`;
 
 // One fragment per cell: sample the 72-value patch, then pick the closest glyph.
@@ -278,7 +265,7 @@ export function createConverter(gl, { bank, source, noise }) {
 
   const P = {
     blur: program(gl, BLUR), down: program(gl, DOWN), gauss: program(gl, GAUSS),
-    local: program(gl, LOCAL), sample: program(gl, SAMPLER), match: program(gl, MATCH(NG)),
+    local: program(gl, LOCAL), match: program(gl, MATCH(NG)),
   };
   gl.uniformBlockBinding(P.match.p, gl.getUniformBlockIndex(P.match.p, "Bank"), 0);
   const fbo = gl.createFramebuffer();
@@ -297,7 +284,6 @@ export function createConverter(gl, { bank, source, noise }) {
     s0: mk(gl.R32F, S8W, S8H, gl.RED, gl.FLOAT),
     s1: mk(gl.R32F, S8W, S8H, gl.RED, gl.FLOAT),
     s2: mk(gl.R32F, S8W, S8H, gl.RED, gl.FLOAT),
-    samp: mk(gl.RGBA32F, SAMPLE, SAMPLE, gl.RGBA, gl.FLOAT),
   };
   gl.bindTexture(gl.TEXTURE_2D, rt.lum);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -333,12 +319,22 @@ export function createConverter(gl, { bank, source, noise }) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
     gl.flush();
-    return { buf, sync, bytes };
+    return { buf, sync, bytes, tex, w, h, format, type };
   }
-  // copies the pixels into out and returns true once the GPU has finished; force waits for it
+  // copies the pixels into out and returns true once the GPU has finished. force reads right now
+  // with a blocking readPixels (getBufferSubData is specified to wait for a pending read, but
+  // ANGLE on Metal has returned the unwritten buffer).
   function poll(h, out, force = false) {
     if (!h.buf) return false;
-    if (!force && gl.clientWaitSync(h.sync, 0, 0) === gl.TIMEOUT_EXPIRED) return false;
+    if (force) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, h.tex, 0);
+      gl.readPixels(0, 0, h.w, h.h, h.format, h.type, out);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      cancel(h);
+      return true;
+    }
+    if (gl.clientWaitSync(h.sync, 0, 0) === gl.TIMEOUT_EXPIRED) return false;
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, h.buf);
     gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, out, 0, h.bytes / out.BYTES_PER_ELEMENT);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
@@ -350,24 +346,27 @@ export function createConverter(gl, { bank, source, noise }) {
     gl.deleteSync(h.sync); gl.deleteBuffer(h.buf); h.buf = null;
   }
 
-  // ---- percentile stretch: histogram of a point-sampled copy of lum ---------------------------
+  // ---- percentile stretch: exact histogram of the whole filtered luminance, computed once ------
   const BINS = 4096;
-  const pct = { lo: null, hi: null, handle: null, n: 0, buf: new Float32Array(SAMPLE * SAMPLE * 4), hist: new Uint32Array(BINS) };
-  function percentile(q) {                      // of the histogram, with linear interpolation inside the bin
-    const target = q / 100 * (pct.n - 1);
-    let cum = 0;
-    for (let b = 0; b < BINS; b++) {
-      const c = pct.hist[b];
-      if (cum + c > target) return (b + (target - cum + 0.5) / c) / BINS;
-      cum += c;
-    }
-    return 1;
-  }
-  function updateStretch() {
-    pct.hist.fill(0);
-    for (let i = 0; i < pct.n; i++) pct.hist[Math.min(BINS - 1, Math.max(0, (pct.buf[i * 4] * BINS) | 0))]++;
+  const pct = { lo: null, hi: null };
+  function stretchFromLum() {
+    const buf = new Float32Array(SW * SH * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rt.lum, 0);
+    gl.readPixels(0, 0, SW, SH, gl.RGBA, gl.FLOAT, buf);
+    const hist = new Uint32Array(BINS), n = SW * SH;
+    for (let i = 0; i < n; i++) hist[Math.min(BINS - 1, Math.max(0, (buf[i * 4] * BINS) | 0))]++;
+    const percentile = (q) => {                            // linear interpolation inside the bin
+      const target = q / 100 * (n - 1);
+      let cum = 0;
+      for (let b = 0; b < BINS; b++) {
+        const c = hist[b];
+        if (cum + c > target) return (b + (target - cum + 0.5) / c) / BINS;
+        cum += c;
+      }
+      return 1;
+    };
     pct.lo = percentile(prm.lo_pct); pct.hi = percentile(prm.hi_pct);
-    pct.handle = null;
     api.stats = { lo: pct.lo, hi: pct.hi };
   }
 
@@ -393,7 +392,6 @@ export function createConverter(gl, { bank, source, noise }) {
     const c = cropFor(cols, rows, cover);
     api.crop = { sx: c.sx / SW, sy: c.sy / SH, sw: c.sw / SW, sh: c.sh / SH };
     const scale = c.sw / W;                                // source px per feature px
-    const sw = Math.min(SAMPLE, W), sh = Math.min(SAMPLE, H);
 
     // blur sigma 1 feature px (= scale source px), less the variance the bilinear sampling in
     // match adds, then linear luminance
@@ -416,22 +414,13 @@ export function createConverter(gl, { bank, source, noise }) {
     pass("gauss-v", P.gauss, rt.s2, S8W, S8H, { uIn: i1(T_IN), uAxis: i2(0, 1), uSize: i2(S8W, S8H), uSigma: sigmaSmall, uR: i1(rs) });
     bindTex(T_IN, rt.lum0); bindTex(T_IN2, rt.s2);
     pass("local", P.local, rt.lum, SW, SH, { uLum: i1(T_IN), uBase: i1(T_IN2), uBaseSize: i2(S8W, S8H), uLocal: prm.local });
-
-    // percentile stretch: the sample is read back asynchronously and used one conversion late (it
-    // depends on the image and the crop, so it barely moves); only the very first run waits for it
-    if (pct.handle && poll(pct.handle, pct.buf)) updateStretch();
-    if (!pct.handle) {
-      bindTex(T_IN, rt.lum);
-      pass("sample", P.sample, rt.samp, sw, sh, { uIn: i1(T_IN), uSize: i2(SW, SH), uOut: i2(sw, sh),
-        uOrigin: { fn: "uniform2f", args: [c.sx, c.sy] }, uExtent: { fn: "uniform2f", args: [c.sw, c.sh] } });
-      pct.handle = readAsync(rt.samp, sw, sh, gl.RGBA, gl.FLOAT, sw * sh * 16);
-      pct.n = sw * sh;
-    }
-    if (pct.lo == null) { poll(pct.handle, pct.buf, true); updateStretch(); }
-
     bindTex(T_IN, rt.lum);
-    gl.generateMipmap(gl.TEXTURE_2D);                      // for grids coarser than the source
-    bindTex(T_NOISE, noiseTex); bindTex(T_LUT, lutTex);
+    gl.generateMipmap(gl.TEXTURE_2D);                      // for grids coarser than the source; also
+                                                           // makes the texture complete before any read
+
+    if (pct.lo == null) stretchFromLum();                  // once; the blur above is crop-independent too
+
+    bindTex(T_IN, rt.lum); bindTex(T_NOISE, noiseTex); bindTex(T_LUT, lutTex);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, bankBuf);
     pass("match", P.match, out, cols, rows, {
       uLum: i1(T_IN), uNoise: i1(T_NOISE), uLut: i1(T_LUT),
@@ -448,6 +437,7 @@ export function createConverter(gl, { bank, source, noise }) {
 
   // Convert into the caller's RGBA8 texture (at least cols x rows). No readback.
   api.convertInto = function convertInto(tex, cols, rows, { cover = true } = {}) { run(cols, rows, cover, tex); };
+
 
   // Debug / validation: returns ASCII ids (charCode - 32), row-major, cols * rows. Blocks on a readback.
   let ids = null;
