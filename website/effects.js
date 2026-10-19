@@ -1,6 +1,7 @@
 // Idle effects for the ASCII painting. Each effect is a small state machine stepped by one
 // requestAnimationFrame loop; when any of them changed a cell, the grid is uploaded once.
 // All of them only swap characters in cells, so the drawing never moves.
+// start() returns stop(); the effects restart whenever the renderer replaces the grid.
 
 import { eye } from "./regions.js";
 
@@ -10,6 +11,7 @@ const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 const SPACE = 0;
 
 function start(A) {
+  const cleanup = [];                            // listeners to remove on stop()
   const owned = new Set();                       // cells currently held by an effect
   const key = (r, c) => r * A.cols + c;
   const inView = (r, c) => { const v = A.visible(); return r >= v.row0 && r <= v.row1 && c >= v.col0 && c <= v.col1; };
@@ -57,7 +59,7 @@ function start(A) {
       owned.add(key(r, c));
       on = true; A.setId(r, c, A.BLOCK); A.setGlow(r, c, 1); A.flush();
     }
-    A.onLayout(place); place();
+    cleanup.push(A.onLayout(place)); place();
     if (REDUCED) return () => false;              // static caret
     return (t) => {
       if (t < next) return false;
@@ -161,7 +163,9 @@ function start(A) {
     };
     for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
     let li = -1, next = Infinity, queued = 0;
-    window.addEventListener("pointerdown", () => { queued = Math.min(queued + 1, 2); });
+    const onDown = () => { queued = Math.min(queued + 1, 2); };
+    window.addEventListener("pointerdown", onDown);
+    cleanup.push(() => window.removeEventListener("pointerdown", onDown));
     return (t) => {
       if (li < 0 && queued > 0) { queued--; next = t; }  // a click starts a blink right away
       if (t < next) return false;
@@ -180,15 +184,26 @@ function start(A) {
   const effects = [caret(), blink()];
   if (!REDUCED) effects.push(typo(), breathe());
   A.flush();
+  let raf = 0;
   const loop = (t) => {
     let dirty = stepMorphs(t);                   // finish running crossfades before effects start new ones
     for (const step of effects) dirty = step(t) || dirty;
     dirty = fadeGlow(t) || dirty;
     if (dirty) A.flush();
-    requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   };
-  requestAnimationFrame(loop);
+  raf = requestAnimationFrame(loop);
+  return function stop() {
+    cancelAnimationFrame(raf);
+    for (const fn of cleanup) fn();
+  };
 }
 
-if (window.ASCII) start(window.ASCII);
-else window.addEventListener("ascii-ready", () => start(window.ASCII), { once: true });
+let running = null;
+function boot() {
+  if (running) running();
+  running = start(window.ASCII);
+}
+window.addEventListener("ascii-grid", boot);
+if (window.ASCII) boot();
+else window.addEventListener("ascii-ready", boot, { once: true });

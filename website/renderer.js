@@ -4,10 +4,14 @@
 // reads it, builds a glyph atlas from the bundled bold DejaVu Sans Mono at the exact device
 // cell size, and draws the whole grid with one fullscreen fragment shader: for every pixel,
 // find its cell, look up the glyph id in a cols x rows data texture, fetch that glyph's pixel
-// from the atlas, tint. Fixed glyph size, grid sized to cover the viewport, anchored top.
+// from the atlas, tint.
+//
+// Two layouts: the static <pre> grid is scaled to cover the viewport (fallback), and a grid
+// passed to setGrid() that fits the viewport is drawn at the constant FONT_PX glyph size.
 //
 // A small API is exposed on window.ASCII so later effects can change cells and re-upload.
 
+const FONT_PX = 8;            // CSS px glyph size for a converted grid
 const ADVANCE = 0.602;        // DejaVu Sans Mono advance width, in em
 const LINE = 1.204;           // line-height in em -> cells are exactly 1:2
 const FONT_FAMILY = '"DejaVu Sans Mono Web"';
@@ -80,19 +84,23 @@ async function main() {
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: false });
   if (!gl) { console.warn("WebGL2 unavailable; keeping the <pre> fallback"); return; }
 
-  // ---- grid data from the <pre> -------------------------------------------------------
-  const rows = pre.textContent.replace(/\n$/, "").split("\n");
-  const ROWS = rows.length, COLS = rows[0].length;
-  const data = new Uint8Array(COLS * ROWS * 4);
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const i = (r * COLS + c) * 4;
-      const code = rows[r].charCodeAt(c) || 32;
-      data[i] = Math.min(94, Math.max(0, code - 32));   // glyph id
-      data[i + 2] = data[i];                             // previous id (for crossfades)
-      data[i + 3] = 255;                                 // blend: 255 = fully the current id
+  // ---- grid data: the <pre> first; setGrid() replaces it ------------------------------
+  let COLS = 0, ROWS = 0, data = null;
+  let fitted = false;                                    // grid came from setGrid (fits the viewport)
+  function fill(cols, rows, idAt) {
+    COLS = cols; ROWS = rows;
+    data = new Uint8Array(COLS * ROWS * 4);
+    for (let i = 0; i < COLS * ROWS; i++) {
+      data[i * 4] = idAt(i);                             // glyph id
+      data[i * 4 + 2] = data[i * 4];                     // previous id (for crossfades)
+      data[i * 4 + 3] = 255;                             // blend: 255 = fully the current id
     }
   }
+  const lines = pre.textContent.replace(/\n$/, "").split("\n");
+  fill(lines[0].length, lines.length, (i) => {
+    const code = lines[Math.floor(i / lines[0].length)].charCodeAt(i % lines[0].length) || 32;
+    return Math.min(94, Math.max(0, code - 32));
+  });
 
   // ---- program ------------------------------------------------------------------------
   const prog = gl.createProgram();
@@ -128,7 +136,6 @@ async function main() {
 
   gl.uniform1i(U.uData, 0);
   gl.uniform1i(U.uAtlas, 1);
-  gl.uniform2i(U.uGrid, COLS, ROWS);
   gl.uniform3fv(U.uInk, INK);
   gl.uniform3fv(U.uBg, BG);
   gl.uniform3fv(U.uHi, HI);
@@ -136,7 +143,26 @@ async function main() {
 
   // ---- layout + atlas (rebuilt on resize, since the device cell size changes) ----------
   const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(96), visible: { row0: 0, row1: 0, col0: 0, col1: 0 } };
-  const layoutListeners = [];
+  const layoutListeners = new Set();
+
+  // the converter shares this context, so re-bind everything before drawing or uploading
+  function bind() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(prog);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, dataTex);
+  }
+
+  // grid that fits the viewport at FONT_PX: cell size in device px and the cell counts
+  function fit() {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = Math.max(1, Math.round(FONT_PX * ADVANCE * dpr)), ch = cw * 2;
+    const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr);
+    return { cw, ch, cols: Math.ceil(W / cw), rows: Math.ceil(H / ch) };
+  }
 
   function buildAtlas(cw, ch) {
     const a = document.createElement("canvas");
@@ -163,6 +189,7 @@ async function main() {
       state.tone[id] = sum / (cw * ch * 255);
     }
     state.tone[BLOCK] = 1;
+    bind();
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -171,20 +198,26 @@ async function main() {
     return a;
   }
 
-  function layout() {
+  function layout(notify = true) {
     const dpr = window.devicePixelRatio || 1;
     const W = window.innerWidth, H = window.innerHeight;
-    // same cover rule as the CSS: font size = max(width-fit, height-fit)
-    const fs = Math.max(W / (COLS * ADVANCE), H / (ROWS * LINE));
-    const cw = Math.max(1, Math.ceil(fs * ADVANCE * dpr));   // integer device px -> crisp glyphs
-    const ch = cw * 2;
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    const f = fit();
+    let cw, ox;
+    if (fitted && f.cols === COLS && f.rows === ROWS) {
+      cw = f.cw; ox = 0;                                   // constant glyph size, anchored top-left
+    } else {
+      // same cover rule as the CSS: font size = max(width-fit, height-fit)
+      const fs = Math.max(W / (COLS * ADVANCE), H / (ROWS * LINE));
+      cw = Math.max(1, Math.ceil(fs * ADVANCE * dpr));    // integer device px -> crisp glyphs
+      ox = Math.round((canvas.width - COLS * cw) / 2);     // centred horizontally (crops both sides)
+    }
+    const ch = cw * 2, oy = 0;                             // anchored to the top edge
     if (cw !== state.cw) { buildAtlas(cw, ch); state.cw = cw; state.ch = ch; }
     state.dpr = dpr;
-    const ox = Math.round((canvas.width - COLS * cw) / 2);   // centred horizontally (crops both sides)
-    const oy = 0;                                           // anchored to the top edge
+    bind();
+    gl.uniform2i(U.uGrid, COLS, ROWS);
     gl.uniform2f(U.uViewport, canvas.width, canvas.height);
     gl.uniform2f(U.uCell, cw, ch);
     gl.uniform2f(U.uOffset, ox, oy);
@@ -194,16 +227,26 @@ async function main() {
       col0: Math.max(0, Math.floor(-ox / cw)),
       col1: Math.min(COLS - 1, Math.floor((canvas.width - 1 - ox) / cw)),
     };
-    for (const fn of layoutListeners) fn(state.visible);
+    if (notify) for (const fn of layoutListeners) fn(state.visible);
   }
 
   function flush() {
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, dataTex);
+    bind();
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COLS, ROWS, gl.RGBA, gl.UNSIGNED_BYTE, data);
   }
 
+  // replace the whole grid (ids are ASCII ids, row-major); effects restart on "ascii-grid"
+  function setGrid(cols, rows, ids) {
+    fill(cols, rows, (i) => ids[i]);
+    fitted = true;
+    bind();
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    layout(false);                                         // listeners belong to the old grid
+    window.dispatchEvent(new Event("ascii-grid"));
+  }
+
   function frame(t) {
+    bind();
     gl.uniform1f(U.uTime, t / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     requestAnimationFrame(frame);
@@ -218,7 +261,8 @@ async function main() {
 
   // ---- public API for effects ---------------------------------------------------------
   window.ASCII = {
-    cols: COLS, rows: ROWS, data, state,
+    get cols() { return COLS; }, get rows() { return ROWS; }, get data() { return data; }, state,
+    fit, setGrid,
     get(r, c) { return String.fromCharCode(32 + data[(r * COLS + c) * 4]); },
     set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); },
     idAt(r, c) { return data[(r * COLS + c) * 4]; },
@@ -229,7 +273,7 @@ async function main() {
     glowAt(r, c) { return data[(r * COLS + c) * 4 + 1] / 255; },
     setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
     visible() { return state.visible; },
-    onLayout(fn) { layoutListeners.push(fn); },
+    onLayout(fn) { layoutListeners.add(fn); return () => layoutListeners.delete(fn); },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
     tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
     flush,
