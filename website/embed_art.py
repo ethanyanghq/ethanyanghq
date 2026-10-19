@@ -1,25 +1,13 @@
 #!/usr/bin/env python3
 """Embed an ASCII art text file into index.html's <pre class="art"> and update the
 cover font-size formula to match its grid. Usage: python3 embed_art.py ART.txt"""
-import html, json, pathlib, re, sys
+import html, pathlib, re, sys
 
 art_path = pathlib.Path(sys.argv[1])
 art = art_path.read_text().rstrip("\n")
 rows = art.split("\n")
 cols = len(rows[0])
 assert all(len(r) == cols for r in rows), "ragged lines in " + str(art_path)
-
-# Hand edits live in patches.json next to the art file: [{"row": r, "col": c, "text": "..."}].
-# They are applied on every embed, so regenerating the art does not lose them.
-patch_path = art_path.with_name("patches.json")
-if patch_path.exists():
-    patches = json.loads(patch_path.read_text())
-    for pt in patches:
-        r, c, t = pt["row"], pt["col"], pt["text"]
-        assert c + len(t) <= cols, f"patch {pt} overflows row"
-        rows[r] = rows[r][:c] + t + rows[r][c + len(t):]
-    art = "\n".join(rows)
-    print(f"applied {len(patches)} patch(es) from {patch_path.name}")
 
 page = pathlib.Path(__file__).with_name("index.html")
 s = page.read_text()
