@@ -87,6 +87,7 @@ async function main() {
   // ---- grid data: the <pre> first; setGrid() replaces it ------------------------------
   let COLS = 0, ROWS = 0, data = null;
   let fitted = false;                                    // grid came from setGrid (fits the viewport)
+  let crop = { sx: 0, sy: 0, sw: 1, sh: 1 };             // image area the grid shows, in image fractions
   function fill(cols, rows, idAt) {
     COLS = cols; ROWS = rows;
     data = new Uint8Array(COLS * ROWS * 4);
@@ -236,8 +237,9 @@ async function main() {
   }
 
   // replace the whole grid (ids are ASCII ids, row-major); effects restart on "ascii-grid"
-  function setGrid(cols, rows, ids) {
+  function setGrid(cols, rows, ids, area = crop) {
     fill(cols, rows, (i) => ids[i]);
+    crop = area;
     fitted = true;
     bind();
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
@@ -262,7 +264,7 @@ async function main() {
   // ---- public API for effects ---------------------------------------------------------
   window.ASCII = {
     get cols() { return COLS; }, get rows() { return ROWS; }, get data() { return data; }, state,
-    fit, setGrid,
+    fit, setGrid, get crop() { return crop; },
     get(r, c) { return String.fromCharCode(32 + data[(r * COLS + c) * 4]); },
     set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); },
     idAt(r, c) { return data[(r * COLS + c) * 4]; },
