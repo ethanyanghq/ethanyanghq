@@ -212,10 +212,21 @@ def tint_colors(col, strength=0.55, floor=0.35):
 def convert(img, font_path, cols, fw=6, fh=12, cell_aspect=2.0, sigma=1.0, gamma=1.5,
             lo_pct=0.5, hi_pct=99.5, tone_weight=4.0, diffuse=True, invert=False,
             charset=PRINTABLE, ink_mult=1.0, local=0.0, flat_ref=0.06, aniso=6.0,
-            flat_mode="aniso", dither=0.0):
+            flat_mode="aniso", dither=0.0, export_bank=None):
     G, Gmean = build_glyph_bank(font_path, charset, fw, fh, sigma=sigma * 0.9)
     P, col, rows = image_to_patches(img, cols, fw, fh, cell_aspect, sigma, gamma, lo_pct, hi_pct, invert, local)
     ink_scale = Gmean.max() * ink_mult
+    if export_bank:                   # glyph features for the browser's GPU converter (convert.js)
+        bank = {"fw": fw, "fh": fh, "chars": "".join(charset),
+                "mean": [round(float(m), 6) for m in Gmean],
+                "feat": [[round(float(v), 6) for v in g] for g in G],
+                "tonal": [1 if ch in TONAL else 0 for ch in charset],
+                "ink_scale": round(float(ink_scale), 6),
+                "params": {"sigma": sigma, "gamma": gamma, "lo_pct": lo_pct, "hi_pct": hi_pct,
+                           "local": local, "flat": flat_ref, "tone": tone_weight, "dither": dither}}
+        with open(export_bank, "w") as f:
+            json.dump(bank, f, separators=(",", ":"))
+        print(f"{len(charset)} glyphs -> {export_bank}")
     choice = match(P, G, Gmean, rows, cols, tone_weight, diffuse, ink_scale,
                    flat_ref=flat_ref, aniso_weight=aniso, charset=charset,
                    flat_mode=flat_mode, dither=dither)
@@ -243,6 +254,7 @@ def main():
     ap.add_argument("--charset", choices=["printable", "curated"], default="printable",
                     help="glyph alphabet: all 95 printable, or the curated tonal+line set")
     ap.add_argument("--out", default="ascii")
+    ap.add_argument("--export-bank", metavar="PATH", help="write the glyph bank as JSON for convert.js")
     ap.add_argument("--png", action="store_true")
     ap.add_argument("--color", action="store_true")
     ap.add_argument("--cell", type=int, default=12, help="preview cell width px")
@@ -252,7 +264,7 @@ def main():
     grid, P, col, rows = convert(img, a.font, a.cols, cell_aspect=a.aspect, sigma=a.sigma,
                                   gamma=a.gamma, tone_weight=a.tone, diffuse=not a.no_diffuse,
                                   invert=a.invert, local=a.local, flat_ref=a.flat, aniso=a.aniso,
-                                  ink_mult=a.ink, flat_mode=a.flat_mode, dither=a.dither,
+                                  ink_mult=a.ink, flat_mode=a.flat_mode, dither=a.dither, export_bank=a.export_bank,
                                   charset=CURATED if a.charset == "curated" else PRINTABLE)
     with open(a.out + ".txt", "w") as f:
         f.write("\n".join("".join(r) for r in grid) + "\n")
