@@ -24,8 +24,9 @@ const WORD_MARK = 0.3;            // first part of a word's window: its letters 
 const LIFT = 0.12;                // part of a letter's flight spent rising out of the cell
 const NEVER = 2;                  // "leaves at" for cells that stay (spaces)
 const IDLE_MS = 8000;             // at rest this long, the first word's cells light up: a cue to scroll
-const GEAR_WORD = "factorio";     // once landed, its letters rock like meshing gears
-const GEAR_RAD = 0.1, GEAR_PERIOD = 7;   // amplitude (rad) and period (s) of the rocking
+const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cogs, turning against each other
+const GEAR_PERIOD = 12;           // seconds per revolution
+const GEAR_TEETH = 8;
 
 const bio = document.querySelector("section.bio");
 const fx = document.getElementById("fx");
@@ -64,7 +65,7 @@ for (const L of letters) if (L.link) { if (!links.has(L.link)) links.set(L.link,
   for (const L of letters) (byWord.get(L.word) || byWord.set(L.word, []).get(L.word)).push(L);
   for (const ls of byWord.values()) {
     const text = ls.map(L => L.ch).join("").replace(/[^a-z]/gi, "").toLowerCase();
-    if (text === GEAR_WORD) ls.forEach((L, i) => { if (/[a-z]/i.test(L.ch)) L.gear = i; });
+    if (text === GEAR_WORD) { let i = 0; for (const L of ls) if (L.ch === "o") L.gear = i++; }
   }
 }
 
@@ -167,6 +168,19 @@ function sizeOverlay() {
 }
 const range = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
 const glyph = (id) => String.fromCharCode(32 + id);
+// a small gear in place of a letter o: ring with teeth, hub cut out, same ink as the text
+function cog(x, y, size, angle) {
+  const tip = 0.30 * size, root = 0.245 * size, hole = 0.16 * size, n = GEAR_TEETH;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.beginPath();
+  for (let i = 0; i < n; i++) {                        // flat-topped teeth: 4 points per tooth
+    const a = i / n * 2 * Math.PI, w = Math.PI / n;    // tooth and gap each take half a pitch
+    for (const [r, da] of [[root, -w * 0.5], [tip, -w * 0.32], [tip, w * 0.32], [root, w * 0.5]])
+      ctx.lineTo(r * Math.cos(a + da), r * Math.sin(a + da));
+  }
+  ctx.closePath();
+  ctx.moveTo(hole, 0); ctx.arc(0, 0, hole, 0, 2 * Math.PI, true);   // reverse winding: cuts the hub hole
+  ctx.fillStyle = INK; ctx.fill("evenodd"); ctx.restore();
+}
 function frame(t) {
   const A = window.ASCII;
   target = clamp01(scrollY / range());
@@ -196,14 +210,12 @@ function frame(t) {
   }
   for (const L of letters) {
     const landed = p >= L.fly1 || L.r < 0 && p >= L.fly0;
-    const gear = landed && L.gear != null && !REDUCED;   // drawn here, rocking, instead of by the span
+    const gear = landed && L.gear != null && !REDUCED;   // drawn here as a cog instead of by the span
     const show = landed && !gear;
     if (show !== L.on) { L.on = show; L.span.classList.toggle("on", show); }
     if (gear) {
-      const angle = GEAR_RAD * Math.sin(t / 1000 * 2 * Math.PI / GEAR_PERIOD) * (L.gear % 2 ? 1 : -1);
-      ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(angle);
-      ctx.font = `${L.italic ? "italic " : ""}400 ${L.size}px ${FONT}`; ctx.fillStyle = INK;
-      ctx.fillText(L.ch, 0, 0); ctx.restore();
+      const angle = (t / 1000 / GEAR_PERIOD * 2 * Math.PI + (L.gear % 2 ? Math.PI / GEAR_TEETH : 0)) * (L.gear % 2 ? -1 : 1);
+      cog(L.x, L.y + 0.07 * L.size, L.size, angle);   // centred on the o's x-height, not the line box
       continue;
     }
     if (L.r < 0 || landed || p < L.mark0 || REDUCED) continue;
