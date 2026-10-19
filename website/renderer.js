@@ -6,17 +6,17 @@
 // find its cell, look up the glyph id in a cols x rows data texture, fetch that glyph's pixel
 // from the atlas, tint.
 //
-// Two layouts: the static <pre> grid is scaled to cover the viewport (fallback), and a grid
-// passed to setGrid() that fits the viewport is drawn at the constant FONT_PX glyph size.
+// When float render targets exist, the grid is a function of the viewport: glyphs are a constant
+// FONT_PX, cols x rows is whatever fits, and convert.js re-converts the painting on the GPU
+// straight into the data texture whenever the canvas changes size (ResizeObserver, before paint,
+// so the picture reflows on the same frame). The CPU copy of the grid that effects read and write
+// comes back asynchronously; until it lands ASCII.stale is true and flush() is a no-op. Without
+// float targets the <pre> grid is drawn scaled to cover the viewport, like the CSS fallback.
 //
-// When float render targets exist, convert.js re-converts the painting on the GPU for a grid
-// that fits the viewport: once at startup, then 200 ms after the last resize (until then the
-// current grid is scaled to cover). The swap goes through ASCII.resolve when effects.js
-// provides it.
-//
-// A small API is exposed on window.ASCII so later effects can change cells and re-upload.
+// A small API is exposed on window.ASCII so effects can change cells and re-upload.
 
 import { loadAssets, createConverter } from "./convert.js";
+import { focus } from "./regions.js";
 
 const FONT_PX = 8;            // CSS px glyph size for a converted grid
 const ADVANCE = 0.602;        // DejaVu Sans Mono advance width, in em
@@ -91,24 +91,25 @@ async function main() {
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, preserveDrawingBuffer: false });
   if (!gl) { console.warn("WebGL2 unavailable; keeping the <pre> fallback"); return; }
 
-  // ---- grid data: the <pre> first; setGrid() replaces it ------------------------------
+  // ---- grid data: the CPU mirror of the data texture ----------------------------------
   let COLS = 0, ROWS = 0, data = null;
-  let fitted = false;                                    // grid came from setGrid (fits the viewport)
+  let stale = false;                                     // mirror is older than the GPU grid
   let crop = { sx: 0, sy: 0, sw: 1, sh: 1 };             // image area the grid shows, in image fractions
-  function fill(cols, rows, idAt) {
+  let row0 = Infinity, row1 = -1;                        // rows touched since the last flush
+  const touch = (r) => { if (r < row0) row0 = r; if (r > row1) row1 = r; };
+  function alloc(cols, rows) {
     COLS = cols; ROWS = rows;
     data = new Uint8Array(COLS * ROWS * 4);
-    for (let i = 0; i < COLS * ROWS; i++) {
-      data[i * 4] = idAt(i);                             // glyph id
-      data[i * 4 + 2] = data[i * 4];                     // previous id (for crossfades)
-      data[i * 4 + 3] = 255;                             // blend: 255 = fully the current id
-    }
+    row0 = Infinity; row1 = -1;
   }
   const lines = pre.textContent.replace(/\n$/, "").split("\n");
-  fill(lines[0].length, lines.length, (i) => {
-    const code = lines[Math.floor(i / lines[0].length)].charCodeAt(i % lines[0].length) || 32;
-    return Math.min(94, Math.max(0, code - 32));
-  });
+  alloc(lines[0].length, lines.length);
+  for (let i = 0; i < COLS * ROWS; i++) {
+    const code = lines[Math.floor(i / COLS)].charCodeAt(i % COLS) || 32;
+    data[i * 4] = Math.min(94, Math.max(0, code - 32));   // glyph id
+    data[i * 4 + 2] = data[i * 4];                         // previous id (for crossfades)
+    data[i * 4 + 3] = 255;                                 // blend: 255 = fully the current id
+  }
 
   // ---- program ------------------------------------------------------------------------
   const prog = gl.createProgram();
@@ -149,9 +150,10 @@ async function main() {
   gl.uniform3fv(U.uHi, HI);
   gl.uniform1f(U.uGamma, 1.45);
 
-  // ---- layout + atlas (rebuilt on resize, since the device cell size changes) ----------
+  // ---- layout + atlas (rebuilt when the device cell size changes) ----------------------
   const state = { cw: 0, ch: 0, dpr: 1, tone: new Float32Array(96), visible: { row0: 0, row1: 0, col0: 0, col1: 0 } };
   const layoutListeners = new Set();
+  let devW = 0, devH = 0;                                // canvas size in device px
 
   // the converter shares this context, so re-bind everything before drawing or uploading
   function bind() {
@@ -164,12 +166,11 @@ async function main() {
     gl.bindTexture(gl.TEXTURE_2D, dataTex);
   }
 
-  // grid that fits the viewport at FONT_PX: cell size in device px and the cell counts
+  // grid that fits the canvas at FONT_PX: cell size in device px and the cell counts
   function fit() {
     const dpr = window.devicePixelRatio || 1;
     const cw = Math.max(1, Math.round(FONT_PX * ADVANCE * dpr)), ch = cw * 2;
-    const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr);
-    return { cw, ch, cols: Math.ceil(W / cw), rows: Math.ceil(H / ch) };
+    return { cw, ch, cols: Math.max(1, Math.ceil(devW / cw)), rows: Math.max(1, Math.ceil(devH / ch)) };
   }
 
   function buildAtlas(cw, ch) {
@@ -208,113 +209,124 @@ async function main() {
 
   function layout(notify = true) {
     const dpr = window.devicePixelRatio || 1;
-    const W = window.innerWidth, H = window.innerHeight;
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
-    const f = fit();
+    canvas.width = devW;
+    canvas.height = devH;
     let cw, ox;
-    if (fitted && f.cols === COLS && f.rows === ROWS) {
-      cw = f.cw; ox = 0;                                   // constant glyph size, anchored top-left
+    if (conv) {
+      cw = fit().cw; ox = 0;                               // constant glyph size, anchored top-left
     } else {
       // same cover rule as the CSS: font size = max(width-fit, height-fit)
-      const fs = Math.max(W / (COLS * ADVANCE), H / (ROWS * LINE));
+      const fs = Math.max(devW / dpr / (COLS * ADVANCE), devH / dpr / (ROWS * LINE));
       cw = Math.max(1, Math.ceil(fs * ADVANCE * dpr));    // integer device px -> crisp glyphs
-      ox = Math.round((canvas.width - COLS * cw) / 2);     // centred horizontally (crops both sides)
+      ox = Math.round((devW - COLS * cw) / 2);             // centred horizontally (crops both sides)
     }
     const ch = cw * 2, oy = 0;                             // anchored to the top edge
     if (cw !== state.cw) { buildAtlas(cw, ch); state.cw = cw; state.ch = ch; }
     state.dpr = dpr;
     bind();
     gl.uniform2i(U.uGrid, COLS, ROWS);
-    gl.uniform2f(U.uViewport, canvas.width, canvas.height);
+    gl.uniform2f(U.uViewport, devW, devH);
     gl.uniform2f(U.uCell, cw, ch);
     gl.uniform2f(U.uOffset, ox, oy);
     state.visible = {
       row0: 0,
-      row1: Math.min(ROWS - 1, Math.floor((canvas.height - 1 - oy) / ch)),
+      row1: Math.min(ROWS - 1, Math.floor((devH - 1 - oy) / ch)),
       col0: Math.max(0, Math.floor(-ox / cw)),
-      col1: Math.min(COLS - 1, Math.floor((canvas.width - 1 - ox) / cw)),
+      col1: Math.min(COLS - 1, Math.floor((devW - 1 - ox) / cw)),
     };
-    if (notify) for (const fn of layoutListeners) fn(state.visible);
+    if (notify && !stale) for (const fn of layoutListeners) fn(state.visible);
   }
 
+  // upload the rows effects touched; nothing while the mirror is stale (the GPU grid is newer)
   function flush() {
+    if (stale || row1 < 0) return;
     bind();
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COLS, ROWS, gl.RGBA, gl.UNSIGNED_BYTE, data);
-  }
-
-  // replace the whole grid (ids are ASCII ids, row-major); effects restart on "ascii-grid"
-  function replace(cols, rows, ids, area) {
-    fill(cols, rows, (i) => ids[i]);
-    crop = area;
-    fitted = true;
-    bind();
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    layout(false);                                         // listeners belong to the old grid
-  }
-  function setGrid(cols, rows, ids, area = crop) {
-    replace(cols, rows, ids, area);
-    window.dispatchEvent(new Event("ascii-grid"));
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row0, COLS, row1 - row0 + 1, gl.RGBA, gl.UNSIGNED_BYTE, data, row0 * COLS * 4);
+    row0 = Infinity; row1 = -1;
   }
 
   // ---- GPU re-conversion ----------------------------------------------------------------
   let conv = null;
   try { conv = createConverter(gl, await loadAssets()); }
   catch (err) { console.warn("converter unavailable; keeping the static grid", err); }
-  function convertFit() {
-    const f = fit();
-    const ids = conv.convert(f.cols, f.rows);
-    console.log(`[ascii] ${f.cols}x${f.rows} converted in ${conv.lastMs.toFixed(1)} ms`);
-    return [f.cols, f.rows, ids, conv.crop];
+  if (conv) conv.focus = focus;                          // crop towards the homunculus, not the centre
+  let mirror = null;                                     // pending readback of the grid into data
+
+  // new grid for a new canvas size: convert into the data texture, start the mirror readback
+  function regrid(f, sync = false) {
+    if (mirror) { conv.cancel(mirror); mirror = null; }
+    alloc(f.cols, f.rows);
+    stale = true;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, dataTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);                 // it is the converter's render target now
+    conv.convertInto(dataTex, COLS, ROWS);
+    crop = conv.crop;
+    mirror = conv.readback(dataTex, COLS, ROWS);
+    if (sync) landMirror(true);
+    layout(false);
   }
-  let resizeTimer = 0;
-  function reconvert() {
-    const f = fit();
-    if (fitted && f.cols === COLS && f.rows === ROWS) { layout(); return; }
-    const swap = window.ASCII.resolve || setGrid;
-    swap(...convertFit());
+  function landMirror(force = false) {
+    if (!mirror || !conv.poll(mirror, data, force)) return false;
+    mirror = null;
+    stale = false;
+    row0 = Infinity; row1 = -1;
+    return true;
   }
 
-  function frame(t) {
+  // the canvas changed size: fit a grid to it and draw, all before this frame paints
+  function measure(entry) {
+    const box = entry && entry.devicePixelContentBoxSize && entry.devicePixelContentBoxSize[0];
+    const dpr = window.devicePixelRatio || 1;
+    devW = Math.max(1, box ? box.inlineSize : Math.round(canvas.clientWidth * dpr));
+    devH = Math.max(1, box ? box.blockSize : Math.round(canvas.clientHeight * dpr));
+  }
+  function relayout(sync = false) {
+    const f = fit();
+    if (conv && (f.cols !== COLS || f.rows !== ROWS)) regrid(f, sync);
+    else layout();
+  }
+  function draw(t) {
     bind();
     gl.uniform1f(U.uTime, t / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function frame(t) {
+    if (landMirror()) window.dispatchEvent(new Event("ascii-grid"));   // effects restart on the fresh grid
+    draw(t);
     requestAnimationFrame(frame);
   }
 
   // the atlas must be drawn with the real webfont, not a fallback
   await document.fonts.load(`${FONT_WEIGHT} 16px ${FONT_FAMILY}`);
-  layout();
-  if (conv) replace(...convertFit());                    // fixed glyph size from the first paint
-  window.addEventListener("resize", () => {
-    layout();                                            // scale the current grid: never a gap
-    if (!conv) return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(reconvert, 200);
-  });
+  measure();
+  relayout(true);                                        // first grid, mirror included, before the first paint
+  const ro = new ResizeObserver((entries) => { measure(entries[0]); relayout(); draw(performance.now()); });
+  try { ro.observe(canvas, { box: "device-pixel-content-box" }); } catch { ro.observe(canvas); }
   document.documentElement.classList.add("gl");
   requestAnimationFrame(frame);
 
   // ---- public API for effects ---------------------------------------------------------
   window.ASCII = {
     get cols() { return COLS; }, get rows() { return ROWS; }, get data() { return data; }, state,
-    fit, setGrid, get crop() { return crop; },
+    fit, get crop() { return crop; }, get stale() { return stale; },
     get(r, c) { return String.fromCharCode(32 + data[(r * COLS + c) * 4]); },
-    set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); },
+    set(r, c, ch) { data[(r * COLS + c) * 4] = Math.min(94, Math.max(0, ch.charCodeAt(0) - 32)); touch(r); },
     idAt(r, c) { return data[(r * COLS + c) * 4]; },
-    setId(r, c, id) { data[(r * COLS + c) * 4] = Math.min(BLOCK, Math.max(0, id)); },
+    setId(r, c, id) { data[(r * COLS + c) * 4] = Math.min(BLOCK, Math.max(0, id)); touch(r); },
     BLOCK,
-    setFrom(r, c, id) { data[(r * COLS + c) * 4 + 2] = Math.min(BLOCK, Math.max(0, id)); },
-    setBlend(r, c, v) { data[(r * COLS + c) * 4 + 3] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
+    setFrom(r, c, id) { data[(r * COLS + c) * 4 + 2] = Math.min(BLOCK, Math.max(0, id)); touch(r); },
+    setBlend(r, c, v) { data[(r * COLS + c) * 4 + 3] = Math.round(Math.min(1, Math.max(0, v)) * 255); touch(r); },
     glowAt(r, c) { return data[(r * COLS + c) * 4 + 1] / 255; },
-    setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); },
+    setGlow(r, c, v) { data[(r * COLS + c) * 4 + 1] = Math.round(Math.min(1, Math.max(0, v)) * 255); touch(r); },
     visible() { return state.visible; },
     onLayout(fn) { layoutListeners.add(fn); return () => layoutListeners.delete(fn); },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
     tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
     flush,
   };
-  if (conv) window.CONVERT = conv;                       // debug: CONVERT.convert(cols, rows), CONVERT.lastMs
+  if (conv) window.CONVERT = conv;                       // debug: CONVERT.convert(cols, rows), CONVERT.profile
   window.dispatchEvent(new Event("ascii-ready"));
 }
 

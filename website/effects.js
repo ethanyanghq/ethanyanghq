@@ -1,8 +1,9 @@
 // Idle effects for the ASCII painting. Each effect is a small state machine stepped by one
 // requestAnimationFrame loop; when any of them changed a cell, the grid is uploaded once.
 // All of them only swap characters in cells, so the drawing never moves.
-// start() returns stop() and resolve(); the effects restart whenever the renderer replaces
-// the grid, and ASCII.resolve() swaps in a new grid with a ripple of crossfades.
+// start() returns stop() and resolve(). The renderer re-converts the grid on the GPU as the
+// viewport changes; while its CPU mirror is stale (ASCII.stale) the effects hold, and when a fresh
+// mirror lands ("ascii-grid") they restart on it. resolve() ripples the first grid in.
 
 import { eye } from "./regions.js";
 
@@ -241,6 +242,7 @@ function start(A) {
   A.flush();
   let raf = 0;
   const loop = (t) => {
+    if (A.stale) { raf = requestAnimationFrame(loop); return; }   // grid is mid-resize: hold
     let dirty = stepMorphs(t);                   // finish running crossfades before effects start new ones
     for (const step of effects) dirty = step(t) || dirty;
     dirty = fadeGlow(t) || dirty;
@@ -260,13 +262,12 @@ function start(A) {
 let running = null;
 function boot() {
   const A = window.ASCII;
+  const first = !running;
   if (running) running.stop();
   running = start(A);
-  A.resolve = (cols, rows, ids, crop) => {
-    A.setGrid(cols, rows, ids, crop);              // fires "ascii-grid" -> boot() -> fresh effects
-    if (!REDUCED) running.resolve(performance.now());
-  };
+  if (first && !REDUCED) running.resolve(performance.now());
 }
 window.addEventListener("ascii-grid", boot);
-if (window.ASCII) boot();
-else window.addEventListener("ascii-ready", boot, { once: true });
+const ready = () => { if (!window.ASCII.stale) boot(); };   // else the first "ascii-grid" boots
+if (window.ASCII) ready();
+else window.addEventListener("ascii-ready", ready, { once: true });
