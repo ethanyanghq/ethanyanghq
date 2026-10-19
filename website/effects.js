@@ -242,7 +242,7 @@ function start(A) {
   A.flush();
   let raf = 0;
   const loop = (t) => {
-    if (A.stale) { raf = requestAnimationFrame(loop); return; }   // grid is mid-resize: hold
+    if (A.stale || A.revealP > 0.01) { raf = requestAnimationFrame(loop); return; }   // mid-resize or scrolled: hold
     let dirty = stepMorphs(t);                   // finish running crossfades before effects start new ones
     for (const step of effects) dirty = step(t) || dirty;
     dirty = fadeGlow(t) || dirty;
