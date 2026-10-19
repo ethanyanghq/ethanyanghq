@@ -10,7 +10,7 @@ error diffusion on the cell's mean ink recovers smooth gradients.
 
 Outputs: text file, optional rendered PNG (mono or per-cell colour).
 """
-import argparse, json, math, sys
+import argparse, json, math, pathlib, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -98,8 +98,16 @@ TONAL = set(" `.,'-:~^;!*+=cvxsnoe%aO#8W@")   # evenly textured glyphs allowed i
 CURATED = sorted(TONAL | set("/\\|()[]{}<>_\"jlrtf7?L"))
 
 
+BLUENOISE = pathlib.Path(__file__).with_name("src") / "bluenoise64.png"
+
+
 def blue_noise(rows, cols, seed=1):
-    """Cheap blue-noise approximation: high-passed white noise, zero mean, unit std."""
+    """Per-cell noise in -1..1: the tiled void-and-cluster mask (bluenoise.py) when present,
+    else high-passed white noise (zero mean, unit std)."""
+    if BLUENOISE.exists():
+        m = np.asarray(Image.open(BLUENOISE).convert("L"), dtype=np.float32)
+        t = np.tile(m, (-(-rows // m.shape[0]), -(-cols // m.shape[1])))[:rows, :cols]
+        return ((t / 255.0 - 0.5) * 2).ravel()
     from scipy.ndimage import gaussian_filter
     rng = np.random.default_rng(seed)
     w = rng.standard_normal((rows, cols)).astype(np.float32)
