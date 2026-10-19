@@ -148,20 +148,54 @@ function start(A) {
   }
 
   // -- blink: the Homunculus blinks when the page is clicked -------------------------------
-  // Frames go open -> three in-betweens -> closed; every step is a crossfade, so the lid
-  // slides rather than snaps.
+  // The eye is a region of the image; it is mapped onto the current grid through the crop.
+  // Open = the pupil cells cleared to spaces. Closed = a lid line on the top row, the skin
+  // below the eye copied up into the rest. Three in-betweens step each cell through a density
+  // ramp by ink; every step is a crossfade, so the lid slides rather than snaps.
+  function eyeCells() {
+    const { sx, sy, sw, sh } = A.crop;
+    const toC = (x) => (x - sx) / sw * A.cols, toR = (y) => (y - sy) / sh * A.rows;
+    const c0 = toC(eye.x0), c1 = toC(eye.x1), r0 = toR(eye.y0), r1 = toR(eye.y1);
+    const cx = (c0 + c1) / 2, cy = (r0 + r1) / 2, rx = (c1 - c0) / 2 * 0.85, ry = (r1 - r0) / 2 * 0.85;
+    const hole = [], box = [];                     // box: cells whose centre is inside the rectangle
+    for (let r = Math.floor(r0); r < Math.ceil(r1); r++) for (let c = Math.floor(c0); c < Math.ceil(c1); c++) {
+      if (r < 0 || c < 0 || r >= A.rows || c >= A.cols) continue;
+      if (c + 0.5 >= c0 && c + 0.5 <= c1 && r + 0.5 >= r0 && r + 0.5 <= r1) box.push([r, c]);
+      if (((c + 0.5 - cx) / rx) ** 2 + ((r + 0.5 - cy) / ry) ** 2 <= 1) hole.push([r, c]);
+    }
+    if (!hole.length) {
+      const r = Math.floor(cy), c = Math.floor(cx);
+      if (r >= 0 && c >= 0 && r < A.rows && c < A.cols) hole.push([r, c]);
+    }
+    for (const h of hole) if (!box.some(([r, c]) => r === h[0] && c === h[1])) box.push(h);
+    return { hole, box };
+  }
   function blink() {
-    const frames = [eye.open, ...eye.frames, eye.closed];
+    const { hole, box: cells } = eyeCells();
+    if (!hole.length) return () => false;
+    const rows = cells.map(([r]) => r), cols = cells.map(([, c]) => c);
+    const R0 = Math.min(...rows), R1 = Math.max(...rows), C0 = Math.min(...cols), C1 = Math.max(...cols);
+    const id = (ch) => ch.charCodeAt(0) - 32;
+    const isHole = new Set(hole.map(([r, c]) => key(r, c)));
+    for (const [r, c] of hole) A.setId(r, c, SPACE);
+    const box = [];                                  // [r, c, openId, closedId]
+    for (let r = R0; r <= R1; r++) for (let c = C0; c <= C1; c++) {
+      const open = isHole.has(key(r, c)) ? SPACE : A.idAt(r, c);
+      const below = Math.min(A.rows - 1, R1 + 1);
+      const closed = r === R0 ? id("-") : A.idAt(below, c);
+      box.push([r, c, open, closed]);
+      owned.add(key(r, c));
+    }
+    const RAMP = Array.from(" .:-=c%", id);
+    const nearest = (tone) => RAMP.reduce((b, g) => Math.abs(A.state.tone[g] - tone) < Math.abs(A.state.tone[b] - tone) ? g : b);
+    const frames = [box.map(b => b[2])];
+    for (let k = 1; k <= 3; k++) frames.push(box.map(([, , o, cl]) => nearest(A.state.tone[o] + (A.state.tone[cl] - A.state.tone[o]) * k / 4)));
+    frames.push(box.map(b => b[3]));
     const DOWN = 36, HOLD = 140, UP = 46;          // ms per leg down, closed hold, ms per leg up
     const legs = [];                                // [frameIndex, legMs, holdAfterMs]
     for (let i = 1; i < frames.length; i++) legs.push([i, DOWN, i === frames.length - 1 ? HOLD : 0]);
     for (let i = frames.length - 2; i >= 0; i--) legs.push([i, UP, 0]);
-    const write = (frame, t, ms) => {
-      for (let i = 0; i < frame.length; i++) for (let j = 0; j < frame[i].length; j++) {
-        morph(eye.row + i, eye.col + j, frame[i].charCodeAt(j) - 32, t, ms);
-      }
-    };
-    for (let i = 0; i < eye.open.length; i++) for (let j = 0; j < eye.open[i].length; j++) owned.add(key(eye.row + i, eye.col + j));
+    const write = (frame, t, ms) => { box.forEach(([r, c], i) => morph(r, c, frame[i], t, ms)); };
     let li = -1, next = Infinity, queued = 0;
     const onDown = () => { queued = Math.min(queued + 1, 2); };
     window.addEventListener("pointerdown", onDown);
