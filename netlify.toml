@@ -1,0 +1,9 @@
+# Static site: the deploy is website/ as committed, minus the files only the Python pipeline needs.
+[build]
+  publish = "website"
+  command = "rm -f website/*.py website/ascii_homunculus_loxodontus_*.txt website/fonts/*.ttf website/src/homunculus_loxodontus.png website/src/ref_300.txt"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
