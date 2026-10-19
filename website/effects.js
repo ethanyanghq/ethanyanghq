@@ -1,7 +1,8 @@
 // Idle effects for the ASCII painting. Each effect is a small state machine stepped by one
 // requestAnimationFrame loop; when any of them changed a cell, the grid is uploaded once.
 // All of them only swap characters in cells, so the drawing never moves.
-// start() returns stop(); the effects restart whenever the renderer replaces the grid.
+// start() returns stop() and resolve(); the effects restart whenever the renderer replaces
+// the grid, and ASCII.resolve() swaps in a new grid with a ripple of crossfades.
 
 import { eye } from "./regions.js";
 
@@ -42,7 +43,7 @@ function start(A) {
   function stepMorphs(t) {
     let changed = false;
     for (const [k, [r, c, t0, ms]] of morphs) {
-      const b = Math.min(1, (t - t0) / ms);
+      const b = Math.max(0, Math.min(1, (t - t0) / ms));   // t0 may lie ahead (resolve delays)
       A.setBlend(r, c, b); changed = true;
       if (b >= 1) morphs.delete(k);
     }
@@ -85,7 +86,7 @@ function start(A) {
         for (let tries = 0; tries < 20; tries++) {
           r = (rand(v.row0, v.row1 + 1)) | 0; c = (rand(v.col0, v.col1 + 1)) | 0;
           orig = A.idAt(r, c);
-          if (!owned.has(key(r, c)) && orig !== SPACE && similar[orig].length) break;
+          if (!owned.has(key(r, c)) && !morphs.has(key(r, c)) && orig !== SPACE && similar[orig].length) break;
           orig = -1;
         }
         if (orig < 0) { next = t + 1000; return false; }
@@ -135,7 +136,7 @@ function start(A) {
         const n = Math.max(2, Math.round(flat.length * 0.006));
         for (let i = 0; i < n; i++) {
           const [r, c] = pick(flat);
-          if (owned.has(key(r, c)) || !inView(r, c)) continue;
+          if (owned.has(key(r, c)) || morphs.has(key(r, c)) || !inView(r, c)) continue;
           const orig = A.idAt(r, c);
           owned.add(key(r, c));
           morph(r, c, swap.get(orig), t, 300); spark(r, c, t, 0.55);
@@ -215,6 +216,26 @@ function start(A) {
     };
   }
 
+  // -- resolve: after a grid swap every cell starts on a random glyph of nearly the same ink
+  // and crossfades to its real glyph, rippling out from the centre with a little jitter
+  function resolve(t) {
+    const near = [];                               // for each glyph id: ids with nearly the same ink
+    for (let i = 0; i < 95; i++) {
+      near[i] = [];
+      for (let j = 0; j < 95; j++) if (j !== i && Math.abs(A.state.tone[i] - A.state.tone[j]) < 0.06) near[i].push(j);
+    }
+    const cx = (A.cols - 1) / 2, cy = (A.rows - 1) / 2, far = Math.hypot(cx, cy * 2) || 1;   // cells are 1:2
+    for (let r = 0; r < A.rows; r++) for (let c = 0; c < A.cols; c++) {
+      if (owned.has(key(r, c))) continue;
+      const id = A.idAt(r, c);
+      A.setFrom(r, c, near[id].length ? pick(near[id]) : SPACE);
+      A.setBlend(r, c, 0);
+      const delay = Math.random() * 120 + Math.hypot(c - cx, (r - cy) * 2) / far * 300;
+      morphs.set(key(r, c), [r, c, t + delay, 180]);
+    }
+    A.flush();
+  }
+
   const effects = [caret(), blink()];
   if (!REDUCED) effects.push(typo(), breathe());
   A.flush();
@@ -227,16 +248,24 @@ function start(A) {
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
-  return function stop() {
-    cancelAnimationFrame(raf);
-    for (const fn of cleanup) fn();
+  return {
+    resolve,
+    stop() {
+      cancelAnimationFrame(raf);
+      for (const fn of cleanup) fn();
+    },
   };
 }
 
 let running = null;
 function boot() {
-  if (running) running();
-  running = start(window.ASCII);
+  const A = window.ASCII;
+  if (running) running.stop();
+  running = start(A);
+  A.resolve = (cols, rows, ids, crop) => {
+    A.setGrid(cols, rows, ids, crop);              // fires "ascii-grid" -> boot() -> fresh effects
+    if (!REDUCED) running.resolve(performance.now());
+  };
 }
 window.addEventListener("ascii-grid", boot);
 if (window.ASCII) boot();
