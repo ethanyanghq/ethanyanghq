@@ -27,6 +27,7 @@ const IDLE_MS = 8000;             // at rest this long, the first word's cells l
 const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cogs, turning against each other
 const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
+const SLOW_WORD = "slowly", SLOW_X = 4;   // this word takes SLOW_X times a normal word's share of the scroll
 
 const bio = document.querySelector("section.bio");
 const fx = document.getElementById("fx");
@@ -125,10 +126,15 @@ function buildPlan() {
       L.jitter = rand();
     }
   }
-  // timing: each word gets a window; its letters highlight together, then fly staggered
+  // timing: each word gets a window (the slow word a longer one); its letters highlight together,
+  // then fly staggered
   const span = DONATE[1] - DONATE[0];
+  const weight = words.map(w => w.map(L => L.ch).join("").replace(/[^a-z]/gi, "").toLowerCase() === SLOW_WORD ? SLOW_X : 1);
+  const total = weight.reduce((a, b) => a + b, 0);
+  let pos = 0;
   words.forEach((w, i) => {
-    const t0 = DONATE[0] + span * i / words.length, t1 = DONATE[0] + span * (i + 1.6) / words.length;
+    const t0 = DONATE[0] + span * pos / total, t1 = t0 + span * 1.6 * weight[i] / total;
+    pos += weight[i];
     const fly0 = t0 + (t1 - t0) * WORD_MARK;
     w.forEach((L, k) => {
       L.mark0 = t0;
