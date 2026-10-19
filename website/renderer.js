@@ -9,7 +9,14 @@
 // Two layouts: the static <pre> grid is scaled to cover the viewport (fallback), and a grid
 // passed to setGrid() that fits the viewport is drawn at the constant FONT_PX glyph size.
 //
+// When float render targets exist, convert.js re-converts the painting on the GPU for a grid
+// that fits the viewport: once at startup, then 200 ms after the last resize (until then the
+// current grid is scaled to cover). The swap goes through ASCII.resolve when effects.js
+// provides it.
+//
 // A small API is exposed on window.ASCII so later effects can change cells and re-upload.
+
+import { loadAssets, createConverter } from "./convert.js";
 
 const FONT_PX = 8;            // CSS px glyph size for a converted grid
 const ADVANCE = 0.602;        // DejaVu Sans Mono advance width, in em
@@ -237,14 +244,35 @@ async function main() {
   }
 
   // replace the whole grid (ids are ASCII ids, row-major); effects restart on "ascii-grid"
-  function setGrid(cols, rows, ids, area = crop) {
+  function replace(cols, rows, ids, area) {
     fill(cols, rows, (i) => ids[i]);
     crop = area;
     fitted = true;
     bind();
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COLS, ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
     layout(false);                                         // listeners belong to the old grid
+  }
+  function setGrid(cols, rows, ids, area = crop) {
+    replace(cols, rows, ids, area);
     window.dispatchEvent(new Event("ascii-grid"));
+  }
+
+  // ---- GPU re-conversion ----------------------------------------------------------------
+  let conv = null;
+  try { conv = createConverter(gl, await loadAssets()); }
+  catch (err) { console.warn("converter unavailable; keeping the static grid", err); }
+  function convertFit() {
+    const f = fit();
+    const ids = conv.convert(f.cols, f.rows);
+    console.log(`[ascii] ${f.cols}x${f.rows} converted in ${conv.lastMs.toFixed(1)} ms`);
+    return [f.cols, f.rows, ids, conv.crop];
+  }
+  let resizeTimer = 0;
+  function reconvert() {
+    const f = fit();
+    if (fitted && f.cols === COLS && f.rows === ROWS) { layout(); return; }
+    const swap = window.ASCII.resolve || setGrid;
+    swap(...convertFit());
   }
 
   function frame(t) {
@@ -257,7 +285,13 @@ async function main() {
   // the atlas must be drawn with the real webfont, not a fallback
   await document.fonts.load(`${FONT_WEIGHT} 16px ${FONT_FAMILY}`);
   layout();
-  window.addEventListener("resize", layout);
+  if (conv) replace(...convertFit());                    // fixed glyph size from the first paint
+  window.addEventListener("resize", () => {
+    layout();                                            // scale the current grid: never a gap
+    if (!conv) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(reconvert, 200);
+  });
   document.documentElement.classList.add("gl");
   requestAnimationFrame(frame);
 
@@ -280,6 +314,7 @@ async function main() {
     tone(ch) { return state.tone[Math.min(94, Math.max(0, ch.charCodeAt(0) - 32))]; },
     flush,
   };
+  if (conv) window.CONVERT = conv;                       // debug: CONVERT.convert(cols, rows), CONVERT.lastMs
   window.dispatchEvent(new Event("ascii-ready"));
 }
 
