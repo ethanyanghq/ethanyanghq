@@ -1,0 +1,15 @@
+/* TEAM */
+  Ethan Yang
+  Site: https://github.com/ethanyanghq
+  Contact: ethanyanghq@gmail.com
+
+/* THANKS */
+  Margriet van Breevoort, Homunculus loxodontus (2016), the sculpture this page is after.
+  The source picture is the internet's composite of the sculpture into a painting; the painting's
+  author is uncredited there and here. If you know, write.
+  DejaVu Sans Mono (DejaVu fonts, Bitstream Vera licence).
+
+/* SITE */
+  Standards: HTML, CSS, JavaScript (ES modules), WebGL2
+  The painting is re-matched to glyphs on the GPU for every window size, and on scroll it donates its
+  letters to the text.
