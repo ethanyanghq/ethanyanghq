@@ -23,6 +23,9 @@ const CLEARING = [0.03, 0.14];    // the cells under the text block leave first
 const WORD_MARK = 0.3;            // first part of a word's window: its letters highlight in place
 const LIFT = 0.12;                // part of a letter's flight spent rising out of the cell
 const NEVER = 2;                  // "leaves at" for cells that stay (spaces)
+const IDLE_MS = 8000;             // at rest this long, the first word's cells light up: a cue to scroll
+const GEAR_WORD = "factorio";     // once landed, its letters rock like meshing gears
+const GEAR_RAD = 0.1, GEAR_PERIOD = 7;   // amplitude (rad) and period (s) of the rocking
 
 const bio = document.querySelector("section.bio");
 const fx = document.getElementById("fx");
@@ -56,6 +59,14 @@ const letters = [];                                      // { span, ch, word, li
 }
 const links = new Map();                                 // <a> -> its letters
 for (const L of letters) if (L.link) { if (!links.has(L.link)) links.set(L.link, []); links.get(L.link).push(L); }
+{                                                        // the gear word: letter index within it
+  const byWord = new Map();
+  for (const L of letters) (byWord.get(L.word) || byWord.set(L.word, []).get(L.word)).push(L);
+  for (const ls of byWord.values()) {
+    const text = ls.map(L => L.ch).join("").replace(/[^a-z]/gi, "").toLowerCase();
+    if (text === GEAR_WORD) ls.forEach((L, i) => { if (/[a-z]/i.test(L.ch)) L.gear = i; });
+  }
+}
 
 // ---- plan: donors, timing, and when every cell leaves -------------------------------------
 let plan = null;
@@ -149,18 +160,20 @@ function w0(words) { return words.length && words[0].length ? words[0][0].size :
 
 // ---- per frame: scroll -> p, the shader's uP, flights on the overlay ----------------------
 let p = 0, target = 0, W = 0, H = 0, dpr = 1;
+let restSince = performance.now();                       // when the page last came to rest at the top
 function sizeOverlay() {
   dpr = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   fx.width = Math.round(W * dpr); fx.height = Math.round(H * dpr);
 }
 const range = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
 const glyph = (id) => String.fromCharCode(32 + id);
-function frame() {
+function frame(t) {
   const A = window.ASCII;
   target = clamp01(scrollY / range());
   p += (target - p) * 0.14;                              // smooth wheel steps and flicks
   if (Math.abs(target - p) < 0.0005) p = target;
   A.setP(p);
+  if (p > 0 || target > 0) restSince = t;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (!plan) return;
@@ -168,9 +181,31 @@ function frame() {
   const cellX = (c) => ox + (c + 0.5) * cw, cellY = (r) => (r + 0.5) * ch;
   ctx.textBaseline = "middle"; ctx.textAlign = "center";
   const fs = ch / 1.204;                                  // the grid's font size, CSS px
+  // the cue: at rest, the first word's cells light up where they sit in the painting
+  const idle = t - restSince - IDLE_MS;
+  if (idle > 0) {
+    const a = REDUCED ? 0.8 : 0.45 + 0.55 * Math.sin(idle / 900) ** 2;
+    ctx.globalAlpha = Math.min(1, idle / 1500) * a;
+    for (const L of letters) {
+      if (L.word !== 0 || L.r < 0) continue;
+      ctx.fillStyle = MARK; ctx.fillRect(cellX(L.c) - cw / 2, cellY(L.r) - ch / 2, cw, ch);
+      ctx.fillStyle = HI; ctx.font = `700 ${fs}px ${FONT}`;
+      ctx.fillText(glyph(L.src), cellX(L.c), cellY(L.r));
+    }
+    ctx.globalAlpha = 1;
+  }
   for (const L of letters) {
     const landed = p >= L.fly1 || L.r < 0 && p >= L.fly0;
-    if (landed !== L.on) { L.on = landed; L.span.classList.toggle("on", landed); }
+    const gear = landed && L.gear != null && !REDUCED;   // drawn here, rocking, instead of by the span
+    const show = landed && !gear;
+    if (show !== L.on) { L.on = show; L.span.classList.toggle("on", show); }
+    if (gear) {
+      const angle = GEAR_RAD * Math.sin(t / 1000 * 2 * Math.PI / GEAR_PERIOD) * (L.gear % 2 ? 1 : -1);
+      ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(angle);
+      ctx.font = `${L.italic ? "italic " : ""}400 ${L.size}px ${FONT}`; ctx.fillStyle = INK;
+      ctx.fillText(L.ch, 0, 0); ctx.restore();
+      continue;
+    }
     if (L.r < 0 || landed || p < L.mark0 || REDUCED) continue;
     if (p < L.fly0) {                                     // highlight in place
       const a = clamp01((p - L.mark0) / (L.fly0 - L.mark0));
@@ -200,7 +235,7 @@ function frame() {
     ctx.fillText(g, x, y);
   }
   for (const [a, ls] of links) {
-    const on = ls.every(L => L.on);
+    const on = ls.every(L => L.on || L.gear != null && p >= L.fly1);
     if (on !== a.classList.contains("on")) a.classList.toggle("on", on);
   }
 }
