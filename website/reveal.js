@@ -34,6 +34,10 @@ const AUTO_SCREENS_PER_S = 0.55;   // auto-scroll pace: screen heights per secon
 const DECAY = 0.10;                // scroll progress a cell spends stepping down the tone ladder before it leaves
 const EYE_R = 0.06;                // the eye zone (image height units, aspect-corrected): the last cells to go
 const EYE_LAST = 0.05;             // the eye zone leaves across this much progress at the very end
+const OVERSHOOT = 0.22;            // a landing letter passes its spot by this much of its size, then settles
+const FLASH_MS = 320;              // a landed letter flashes in the highlight colour for this long
+const TAIL = 4, TAIL_STEP = 0.035; // comet tail: ghosts behind a flying letter, this far apart in flight
+const TAIL_SPEED = 0.012;          // p per frame at which the tail is at full length
 const SLOW_WORD = "slowly", SLOW_X = 8;   // this word takes SLOW_X times a normal word's share of the scroll, one letter at a time
 
 const bio = document.querySelector("section.bio");
@@ -196,6 +200,7 @@ function w0(words) { return words.length && words[0].length ? words[0][0].size :
 
 // ---- per frame: scroll -> p, the shader's uP, flights on the overlay ----------------------
 let p = 0, target = 0, W = 0, H = 0, dpr = 1;
+let speed = 0;                                           // signed change of p over the last frame
 let restSince = performance.now();                       // when the page last came to rest at the top
 let bootAt = 0;                                          // when the renderer came up (the cue fades in after)
 
@@ -246,11 +251,39 @@ function cog(x, y, size, angle) {
   ctx.moveTo(hole, 0); ctx.arc(0, 0, hole, 0, 2 * Math.PI, true);   // reverse winding: cuts the hub hole
   ctx.fillStyle = INK; ctx.fill("evenodd"); ctx.restore();
 }
+// where a flying letter is at flight progress u (0 = still in its cell, 1 = on its spot in the text),
+// and how it is drawn; near the end it passes its spot a little and settles back
+function flight(L, u) {
+  const { cw, ch, ox } = plan, fs = ch / 1.204;           // the grid's font size, CSS px
+  const x0 = ox + (L.c + 0.5) * cw, y0 = (L.r + 0.5) * ch, x1 = L.x, y1 = L.y;
+  let x, y, size, g = glyph(L.src), weight = 700, italic = false;
+  if (u < LIFT) {                                         // rise out of the cell
+    const v = u / LIFT;
+    x = x0; y = y0 - v * ch * 0.8; size = fs * (1 + 0.4 * v);
+  } else {                                                // arc to the word
+    const v = ease((u - LIFT) / (1 - LIFT));
+    const lift = -Math.min(160, Math.hypot(x1 - x0, y1 - y0) * 0.25) * (0.3 + 0.7 * L.jitter);
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + lift;
+    x = (1 - v) * (1 - v) * x0 + 2 * (1 - v) * v * mx + v * v * x1;
+    y = (1 - v) * (1 - v) * y0 + 2 * (1 - v) * v * my + v * v * y1;
+    if (v > 0.8) {                                        // overshoot along the arrival direction
+      const w = (v - 0.8) / 0.2, dx = x1 - mx, dy = y1 - my, len = Math.hypot(dx, dy) || 1;
+      const k = OVERSHOOT * L.size * Math.sin(Math.PI * w);
+      x += dx / len * k; y += dy / len * k;
+    }
+    size = fs * 1.4 + (L.size - fs * 1.4) * v;
+    if (v > 0.5) { weight = 400; italic = L.italic; }    // thins out as it becomes text
+    if (v > 0.9 || L.borrowed && v > 0.75 && Math.floor(v * 40) % 2) g = L.ch;   // borrowed glyphs retype
+  }
+  return { x, y, size, g, weight, italic };
+}
 function frame(t) {
   const A = window.ASCII;
   target = clamp01(scrollY / range());
+  const pPrev = p;
   p += (target - p) * 0.14;                              // smooth wheel steps and flicks
   if (Math.abs(target - p) < 0.0005) p = target;
+  speed = p - pPrev;
   A.setP(p);
   if (p > 0 || target > 0) restSince = t;
   if (down && up) {                                      // down: in after a moment, out with the first scroll; up: in at the end
@@ -279,6 +312,8 @@ function frame(t) {
   }
   for (const L of letters) {
     const landed = p >= L.fly1 || L.r < 0 && p >= L.fly0;
+    if (landed && L.landedAt == null) L.landedAt = L.r >= 0 && !REDUCED ? t : -1e9;   // flown in: flash
+    else if (!landed) L.landedAt = null;
     const gear = landed && L.gear != null && !REDUCED;   // drawn here as a cog instead of by the span
     const show = landed && !gear;
     if (show !== L.on) { L.on = show; L.span.classList.toggle("on", show); }
@@ -297,24 +332,33 @@ function frame(t) {
       continue;
     }
     const u = clamp01((p - L.fly0) / (L.fly1 - L.fly0));
-    const x0 = cellX(L.c), y0 = cellY(L.r), x1 = L.x, y1 = L.y;
-    let x, y, size, g = glyph(L.src), weight = 700, italic = false;
-    if (u < LIFT) {                                       // rise out of the cell
-      const v = u / LIFT;
-      x = x0; y = y0 - v * ch * 0.8; size = fs * (1 + 0.4 * v);
-    } else {                                              // arc to the word
-      const v = ease((u - LIFT) / (1 - LIFT));
-      const lift = -Math.min(160, Math.hypot(x1 - x0, y1 - y0) * 0.25) * (0.3 + 0.7 * L.jitter);
-      const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + lift;
-      x = (1 - v) * (1 - v) * x0 + 2 * (1 - v) * v * mx + v * v * x1;
-      y = (1 - v) * (1 - v) * y0 + 2 * (1 - v) * v * my + v * v * y1;
-      size = fs * 1.4 + (L.size - fs * 1.4) * v;
-      if (v > 0.5) { weight = 400; italic = L.italic; }  // thins out as it becomes text
-      if (v > 0.9 || L.borrowed && v > 0.75 && Math.floor(v * 40) % 2) g = L.ch;   // borrowed glyphs retype
+    const f = flight(L, u);
+    if (u >= LIFT) {                                      // comet tail: ghosts along the path just travelled
+      const n = Math.min(1, Math.abs(speed) / TAIL_SPEED) * TAIL, dir = Math.sign(speed) || 1;
+      for (let k = 1; k <= TAIL; k++) {
+        const a = n - k + 1;                              // fades in as the tail lengthens
+        if (a <= 0) break;
+        const uk = u - dir * k * TAIL_STEP;
+        if (uk < LIFT || uk > LIFT + 0.8 * (1 - LIFT)) continue;   // on the arc only, not in the settle
+        const g = flight(L, uk);
+        ctx.globalAlpha = Math.min(1, a) * 0.45 * (1 - (k - 1) / TAIL);
+        ctx.font = `${g.italic ? "italic " : ""}${g.weight} ${g.size * 0.9}px ${FONT}`; ctx.fillStyle = HI;
+        ctx.fillText(g.g, g.x, g.y);
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.font = `${italic ? "italic " : ""}${weight} ${size}px ${FONT}`; ctx.fillStyle = HI;
-    ctx.fillText(g, x, y);
+    ctx.font = `${f.italic ? "italic " : ""}${f.weight} ${f.size}px ${FONT}`; ctx.fillStyle = HI;
+    ctx.fillText(f.g, f.x, f.y);
   }
+  for (const L of letters) {                              // landing flash: highlight over the fresh text
+    if (L.landedAt == null || L.gear != null) continue;
+    const a = 1 - (t - L.landedAt) / FLASH_MS;
+    if (a <= 0) continue;
+    ctx.globalAlpha = a; ctx.fillStyle = HI;
+    ctx.font = `${L.italic ? "italic " : ""}400 ${L.size}px ${FONT}`;
+    ctx.fillText(L.ch, L.x, L.y);
+  }
+  ctx.globalAlpha = 1;
   for (const [a, ls] of links) {
     const on = ls.every(L => L.on || L.gear != null && p >= L.fly1);
     if (on !== a.classList.contains("on")) a.classList.toggle("on", on);
