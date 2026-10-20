@@ -89,6 +89,7 @@ function buildPlan() {
   const cols = A.cols, rows = A.rows, dpr = A.state.dpr;
   const cw = A.state.cw / dpr, ch = A.state.ch / dpr, ox = A.state.ox / dpr;   // CSS px
   const block = measure();
+  if (up) up.style.top = `${Math.round(block.bottom) + 6}px`;   // the up arrow sits just under the text
   const rand = rng(7);
   const tone = A.state.tone;
   const used = new Set();
