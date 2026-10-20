@@ -172,13 +172,12 @@ function w0(words) { return words.length && words[0].length ? words[0][0].size :
 let p = 0, target = 0, W = 0, H = 0, dpr = 1;
 let restSince = performance.now();                       // when the page last came to rest at the top
 let bootAt = 0;                                          // when the renderer came up (the cue fades in after)
-let cue = -1;                                            // the scroll cue's opacity, as last set
 
-// ---- the scroll cue: click and the page scrolls itself to the end at a reading pace -------
-const down = document.getElementById("down");
+// ---- the scroll cues: click and the page scrolls itself, down to the end or back to the top ----
+const down = document.getElementById("down"), up = document.getElementById("up");
 let auto = null;                                         // the running auto-scroll's step function
-function autoScroll() {
-  const from = scrollY, to = range();
+function autoScroll(to) {
+  const from = scrollY;
   if (REDUCED) { scrollTo(0, to); return; }
   const ms = Math.abs(to - from) / innerHeight / AUTO_SCREENS_PER_S * 1000;
   const t0 = performance.now();
@@ -192,9 +191,14 @@ function autoScroll() {
   auto = step; requestAnimationFrame(step);
 }
 const stopAuto = () => { auto = null; };
-if (down) {
-  down.addEventListener("click", () => { down.blur(); autoScroll(); });
+if (down && up) {
+  down.addEventListener("click", () => { down.blur(); autoScroll(range()); });
+  up.addEventListener("click", () => { up.blur(); autoScroll(0); });
   for (const ev of ["wheel", "touchstart", "keydown", "mousedown"]) window.addEventListener(ev, stopAuto, { passive: true });
+}
+function setCue(el, c) {                                 // a cue's opacity; .off while invisible
+  if (Math.abs(c - (el.cue ?? -1)) <= 0.01) return;
+  el.cue = c; el.style.setProperty("--cue", c.toFixed(2)); el.classList.toggle("off", c === 0);
 }
 function sizeOverlay() {
   dpr = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
@@ -222,9 +226,9 @@ function frame(t) {
   if (Math.abs(target - p) < 0.0005) p = target;
   A.setP(p);
   if (p > 0 || target > 0) restSince = t;
-  if (down) {                                            // cue: in after a moment, out with the first scroll
-    const c = clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.85;
-    if (Math.abs(c - cue) > 0.01) { cue = c; down.style.setProperty("--cue", c.toFixed(2)); down.classList.toggle("off", c === 0); }
+  if (down && up) {                                      // down: in after a moment, out with the first scroll; up: in at the end
+    setCue(down, clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.85);
+    setCue(up, clamp01((p - 1 + CUE_FADE) / CUE_FADE) * 0.85);
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);

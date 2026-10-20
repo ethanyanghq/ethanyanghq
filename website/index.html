@@ -68,9 +68,9 @@
     }
     html.gl #fx { display: block; }
 
-    /* a small cue at the foot of the portrait: click and the page is scrolled through at a reading
-       pace (reveal.js sets --cue: fades in after a moment, fades out as soon as you scroll) */
-    #down {
+    /* cues at the foot of the page: the down arrow on the portrait, the up arrow once the bio is read.
+       Click and the page scrolls itself (reveal.js sets --cue: each fades with the scroll position) */
+    #down, #up {
       position: fixed;
       left: 50%;
       bottom: 14px;
@@ -87,14 +87,19 @@
       z-index: 2;
       animation: bob 2.4s ease-in-out infinite;
     }
+    #up { animation-name: bob-up; }
     @keyframes bob {
       0%, 100% { transform: translate(-50%, 0); }
       50% { transform: translate(-50%, 7px); }
     }
-    html.gl #down { display: block; }
-    #down.off { pointer-events: none; }
-    #down:hover, #down:focus-visible { opacity: 1; outline: none; }
-    @media (prefers-reduced-motion: reduce) { #down { animation: none; transform: translateX(-50%); } }
+    @keyframes bob-up {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, -7px); }
+    }
+    html.gl #down, html.gl #up { display: block; }
+    #down.off, #up.off { pointer-events: none; }
+    #down:hover, #down:focus-visible, #up:hover, #up:focus-visible { opacity: 1; outline: none; }
+    @media (prefers-reduced-motion: reduce) { #down, #up { animation: none; transform: translateX(-50%); } }
     /* The bio: real text, centred. With the renderer running, each character is revealed as the
        painting donates it; without it (no JS, no WebGL) the text is simply shown. */
     .bio {
@@ -149,6 +154,7 @@
   <canvas id="stage" role="img" aria-label="ASCII rendering of the painting Homunculus Loxodontus"></canvas>
   <canvas id="fx" aria-hidden="true"></canvas>
   <button id="down" class="off" type="button" aria-label="Scroll down through the page">&#8595;</button>
+  <button id="up" class="off" type="button" aria-label="Scroll back to the top">&#8593;</button>
   <section class="bio" aria-label="About">
     <h1>ethan yang</h1>
     <p>product engineer, working on ai.<br>
