@@ -27,7 +27,7 @@ const NF = FW * FH;
 const NV = NF / 4;              // the 72 features as 18 vec4s
 const LOCAL_DOWN = 8;           // the local-contrast base is blurred at 1/8 resolution
 const BILINEAR_VAR = 1 / 6;     // variance (source px^2) bilinear sampling adds; 96.8% match vs Python with it
-const UNIT = 3;                 // first texture unit used here (the renderer owns 0..2)
+const UNIT = 4;                 // first texture unit used here (the renderer owns 0..3)
 
 const VERT = `#version 300 es
 void main() {

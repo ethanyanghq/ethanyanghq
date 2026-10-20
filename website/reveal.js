@@ -12,6 +12,8 @@
 // Flights and highlights are drawn on the #fx 2D canvas above the stage. The plan (which cell
 // donates which letter) is rebuilt whenever a fresh grid lands or the text block moves.
 
+import { eye } from "./regions.js";
+
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const INK = "#e8d9b5", HI = "#fff6dc", MARK = "rgba(255, 214, 150, 0.28)";
 const FONT = '"DejaVu Sans Mono Web"';
@@ -29,6 +31,9 @@ const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
 const CUE_FADE = 0.06;             // the scroll cue is gone by this p
 const AUTO_SCREENS_PER_S = 0.55;   // auto-scroll pace: screen heights per second, averaged over the run
+const DECAY = 0.10;                // scroll progress a cell spends stepping down the tone ladder before it leaves
+const EYE_R = 0.06;                // the eye zone (image height units, aspect-corrected): the last cells to go
+const EYE_LAST = 0.05;             // the eye zone leaves across this much progress at the very end
 const SLOW_WORD = "slowly", SLOW_X = 8;   // this word takes SLOW_X times a normal word's share of the scroll, one letter at a time
 
 const bio = document.querySelector("section.bio");
@@ -146,23 +151,43 @@ function buildPlan() {
       else { L.fly0 = fly0 + (t1 - fly0) * 0.5 * k / Math.max(1, w.length); L.fly1 = L.fly0 + (t1 - fly0) * 0.5; }
     });
   });
-  // when every cell leaves: donors at their flight; the rest in tonal order with noise, earlier
-  // under the text block (feathered: distance outside the block, rows counting double)
+  // the tone ladder: the glyphs in use, lightest first; a decaying cell steps from its own rank to 0
+  {
+    const ids = [...byId.keys()].sort((a, b) => tone[a] - tone[b]);
+    const rank = new Map(ids.map((id, i) => [id, i]));
+    const STEPS = A.LADDER_STEPS, table = new Uint8Array(96 * STEPS);
+    for (let id = 0; id < 96; id++) for (let s = 0; s < STEPS; s++) {
+      const r = rank.get(id);
+      table[s * 96 + id] = r == null ? id : ids[Math.round(r * (1 - s / (STEPS - 1)))];
+    }
+    A.setLadder(table);
+  }
+  // when every cell leaves: donors at their flight; the rest from the edges in towards the eye, with
+  // tone and noise, earlier under the text block (feathered: distance outside the block, rows counting
+  // double); the eye zone goes last, pupil-most last of all. Each cell decays for a while before it leaves.
+  const crop = A.crop, ASPECT = 971 / 607;               // image fractions -> aspect-corrected units
+  const ex = (eye.x0 + eye.x1) / 2, ey = (eye.y0 + eye.y1) / 2;
+  const imgX = (c) => crop.sx + (c + 0.5) / cols * crop.sw, imgY = (r) => crop.sy + (r + 0.5) / rows * crop.sh;
+  const eyeDist = (c, r) => Math.hypot((imgX(c) - ex) * ASPECT, imgY(r) - ey);
+  const dmax = Math.max(eyeDist(0, 0), eyeDist(cols - 1, 0), eyeDist(0, rows - 1), eyeDist(cols - 1, rows - 1));
   const pad = w0(words) * 1.65 * 0.8;
   const c0 = Math.floor((block.left - pad - ox) / cw), c1 = Math.ceil((block.right + pad - ox) / cw);
   const r0 = Math.floor((block.top - pad) / ch), r1 = Math.ceil((block.bottom + pad) / ch);
-  const at = new Float32Array(cols * rows);
+  const rg = new Float32Array(cols * rows * 2);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const k = r * cols + c, id = A.idAt(r, c);
-    if (id === 0) { at[k] = NEVER; continue; }
-    const thr = 0.7 * rand() + 0.3 * tone[id];
+    if (id === 0) { rg[2 * k] = NEVER; continue; }
+    const dist = eyeDist(c, r);
+    const thr = 0.35 * rand() + 0.15 * tone[id] + 0.5 * (1 - dist / dmax);
     let leave = DELETE[0] + thr * (DELETE[1] - DELETE[0]);
+    if (dist < EYE_R) leave = DELETE[1] - EYE_LAST * (dist / EYE_R) * (0.9 + 0.1 * rand());
     const d = Math.max(c0 - c, c - c1, 0) + 2 * Math.max(r0 - r, r - r1, 0);
     if (thr + d / 10 < 1) leave = Math.min(leave, CLEARING[0] + (thr + d / 10) * (CLEARING[1] - CLEARING[0]));
-    at[k] = leave;
+    rg[2 * k] = leave;
+    rg[2 * k + 1] = Math.min(DECAY * (0.6 + 0.8 * rand()), leave - 0.01);
   }
-  for (const L of letters) if (L.r >= 0) at[L.r * cols + L.c] = L.fly0;
-  A.setGone(at, cols, rows);
+  for (const L of letters) if (L.r >= 0) { rg[2 * (L.r * cols + L.c)] = L.fly0; rg[2 * (L.r * cols + L.c) + 1] = 0; }
+  A.setGone(rg, cols, rows);
   plan = { cw, ch, ox, cols, rows, borrowed };
   for (const L of letters) L.on = undefined;             // force the span states to be re-applied
   for (const [a] of links) a.classList.remove("on");

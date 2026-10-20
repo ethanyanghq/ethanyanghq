@@ -37,6 +37,7 @@ void main() {
   gl_Position = vec4(v * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
+const LADDER_STEPS = 8;       // decay steps a cell takes down the tone ladder before it leaves
 const FRAG = `#version 300 es
 precision highp float;
 uniform sampler2D uData;      // cols x rows: R = glyph id, G = glow, B = previous id, A = blend
@@ -49,7 +50,9 @@ uniform vec2  uAtlasSize;     // atlas size, px
 uniform vec3  uInk, uBg, uHi;
 uniform float uTime;
 uniform float uGamma;       // >1 thins strokes to match DOM text anti-aliasing
-uniform sampler2D uGone;      // per cell: the scroll progress at which it leaves (reveal.js); 2 = never
+uniform sampler2D uGone;      // per cell: R = scroll progress at which it leaves (2 = never), G = how much
+                              // progress before that it spends decaying (0 = none); set by reveal.js
+uniform sampler2D uLadder;    // 96 x ${LADDER_STEPS}: the glyph a decaying cell shows at each step (reveal.js)
 uniform float uP;             // scroll progress of the reveal
 out vec4 outColor;
 
@@ -66,16 +69,23 @@ void main() {
     outColor = vec4(uBg, 1.0);
     return;
   }
-  if (texture(uGone, (vec2(cell) + 0.5) / vec2(uGrid)).r <= uP) {   // the cell has left
+  vec2 g = texture(uGone, (vec2(cell) + 0.5) / vec2(uGrid)).rg;   // leaves at, decay length
+  if (g.r <= uP) {                                                 // the cell has left
     outColor = vec4(uBg, 1.0);
     return;
   }
   vec4 d = texelFetch(uData, cell, 0);
   float id = floor(d.r * 255.0 + 0.5);
   float prev = floor(d.b * 255.0 + 0.5);
+  float blend = d.a;
+  if (g.g > 0.0 && uP > g.r - g.g) {                               // decaying: step down the tone ladder
+    float s = clamp(floor((uP - (g.r - g.g)) / g.g * float(${LADDER_STEPS - 1}) + 0.5), 0.0, float(${LADDER_STEPS - 1}));
+    id = floor(texelFetch(uLadder, ivec2(int(id), int(s)), 0).r * 255.0 + 0.5);
+    blend = 1.0;
+  }
   vec2 f = fract(cellf);
   float a1 = glyphAlpha(id, f);
-  float a = d.a >= 1.0 ? a1 : mix(glyphAlpha(prev, f), a1, d.a);   // crossfade between two glyphs
+  float a = blend >= 1.0 ? a1 : mix(glyphAlpha(prev, f), a1, blend);   // crossfade between two glyphs
   a = pow(a, uGamma);
   vec3 ink = mix(uInk, uHi, d.g);          // glow: brighten the ink, keep the glyph shape
   outColor = vec4(mix(uBg, ink, a), 1.0);
@@ -126,7 +136,7 @@ async function main() {
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link: " + gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
   const U = {};
-  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uHi", "uTime", "uGamma", "uGone", "uP"]) {
+  for (const n of ["uData", "uAtlas", "uViewport", "uCell", "uOffset", "uGrid", "uAtlasSize", "uInk", "uBg", "uHi", "uTime", "uGamma", "uGone", "uLadder", "uP"]) {
     U[n] = gl.getUniformLocation(prog, n);
   }
   gl.bindVertexArray(gl.createVertexArray());   // required for drawing in WebGL2, even with no attributes
@@ -158,12 +168,26 @@ async function main() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, 1, 1, 0, gl.RED, gl.FLOAT, new Float32Array([2]));
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, 1, 1, 0, gl.RG, gl.FLOAT, new Float32Array([2, 0]));
   let revealP = 0;
+  // reveal: the tone ladder (identity until reveal.js builds one from the glyphs in use)
+  const ladderTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, ladderTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  {
+    const identity = new Uint8Array(96 * LADDER_STEPS);
+    for (let s = 0; s < LADDER_STEPS; s++) for (let id = 0; id < 96; id++) identity[s * 96 + id] = id;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 96, LADDER_STEPS, 0, gl.RED, gl.UNSIGNED_BYTE, identity);
+  }
 
   gl.uniform1i(U.uData, 0);
   gl.uniform1i(U.uAtlas, 1);
   gl.uniform1i(U.uGone, 2);
+  gl.uniform1i(U.uLadder, 3);
   gl.uniform1f(U.uP, 0);
   gl.uniform3fv(U.uInk, INK);
   gl.uniform3fv(U.uBg, BG);
@@ -181,6 +205,8 @@ async function main() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.useProgram(prog);
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, ladderTex);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, goneTex);
     gl.activeTexture(gl.TEXTURE1);
@@ -349,12 +375,19 @@ async function main() {
     visible() { return state.visible; },
     onLayout(fn) { layoutListeners.add(fn); return () => layoutListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
-    // reveal: per-cell scroll progress at which the cell leaves, and the current progress
-    setGone(at, cols, rows) {
+    // reveal: per cell, interleaved [leaves at, decay length] in scroll progress; the current progress;
+    // the tone ladder (96 x LADDER_STEPS glyph ids: what a decaying cell shows at each step)
+    setGone(rg, cols, rows) {
       bind();
       gl.activeTexture(gl.TEXTURE2);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, cols, rows, 0, gl.RED, gl.FLOAT, at);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16F, cols, rows, 0, gl.RG, gl.FLOAT, rg);
     },
+    setLadder(table) {
+      bind();
+      gl.activeTexture(gl.TEXTURE3);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 96, LADDER_STEPS, 0, gl.RED, gl.UNSIGNED_BYTE, table);
+    },
+    LADDER_STEPS,
     setP(p) { revealP = p; bind(); gl.uniform1f(U.uP, p); },
     get revealP() { return revealP; },
     setGamma(g) { gl.uniform1f(U.uGamma, g); },
