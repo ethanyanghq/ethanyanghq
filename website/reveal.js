@@ -28,7 +28,7 @@ const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cog
 const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
 const CUE_FADE = 0.06;             // the scroll cue is gone by this p
-const AUTO_SCREENS_PER_S = 0.33;   // auto-scroll pace: screen heights per second (about a slow read)
+const AUTO_SCREENS_PER_S = 0.55;   // auto-scroll pace: screen heights per second, averaged over the run
 const SLOW_WORD = "slowly", SLOW_X = 8;   // this word takes SLOW_X times a normal word's share of the scroll, one letter at a time
 
 const bio = document.querySelector("section.bio");
@@ -184,7 +184,8 @@ function autoScroll() {
   const t0 = performance.now();
   const step = (t) => {
     if (auto !== step) return;                           // taken over by the reader, or restarted
-    const u = clamp01((t - t0) / ms), e = u * u * u * (u * (u * 6 - 15) + 10);   // smootherstep
+    const u = clamp01((t - t0) / ms);
+    const e = u < 0.5 ? 4 * u * u * u : 1 - 4 * (1 - u) ** 3;   // slow, fast through the middle, slow
     scrollTo(0, from + (to - from) * e);
     if (u < 1) requestAnimationFrame(step); else auto = null;
   };
