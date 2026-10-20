@@ -27,6 +27,8 @@ const IDLE_MS = 8000;             // at rest this long, the first word's cells l
 const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cogs, turning against each other
 const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
+const CUE_FADE = 0.06;             // the scroll cue is gone by this p
+const AUTO_SCREENS_PER_S = 0.33;   // auto-scroll pace: screen heights per second (about a slow read)
 const SLOW_WORD = "slowly", SLOW_X = 8;   // this word takes SLOW_X times a normal word's share of the scroll, one letter at a time
 
 const bio = document.querySelector("section.bio");
@@ -169,6 +171,30 @@ function w0(words) { return words.length && words[0].length ? words[0][0].size :
 // ---- per frame: scroll -> p, the shader's uP, flights on the overlay ----------------------
 let p = 0, target = 0, W = 0, H = 0, dpr = 1;
 let restSince = performance.now();                       // when the page last came to rest at the top
+let bootAt = 0;                                          // when the renderer came up (the cue fades in after)
+let cue = -1;                                            // the scroll cue's opacity, as last set
+
+// ---- the scroll cue: click and the page scrolls itself to the end at a reading pace -------
+const down = document.getElementById("down");
+let auto = null;                                         // the running auto-scroll's step function
+function autoScroll() {
+  const from = scrollY, to = range();
+  if (REDUCED) { scrollTo(0, to); return; }
+  const ms = Math.abs(to - from) / innerHeight / AUTO_SCREENS_PER_S * 1000;
+  const t0 = performance.now();
+  const step = (t) => {
+    if (auto !== step) return;                           // taken over by the reader, or restarted
+    const u = clamp01((t - t0) / ms), e = u * u * u * (u * (u * 6 - 15) + 10);   // smootherstep
+    scrollTo(0, from + (to - from) * e);
+    if (u < 1) requestAnimationFrame(step); else auto = null;
+  };
+  auto = step; requestAnimationFrame(step);
+}
+const stopAuto = () => { auto = null; };
+if (down) {
+  down.addEventListener("click", () => { down.blur(); autoScroll(); });
+  for (const ev of ["wheel", "touchstart", "keydown", "mousedown"]) window.addEventListener(ev, stopAuto, { passive: true });
+}
 function sizeOverlay() {
   dpr = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   fx.width = Math.round(W * dpr); fx.height = Math.round(H * dpr);
@@ -195,6 +221,10 @@ function frame(t) {
   if (Math.abs(target - p) < 0.0005) p = target;
   A.setP(p);
   if (p > 0 || target > 0) restSince = t;
+  if (down) {                                            // cue: in after a moment, out with the first scroll
+    const c = clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.6;
+    if (Math.abs(c - cue) > 0.01) { cue = c; down.style.setProperty("--cue", c.toFixed(2)); down.classList.toggle("off", c === 0); }
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (!plan) return;
@@ -263,6 +293,7 @@ function frame(t) {
 async function boot() {
   const A = window.ASCII;
   await document.fonts.load(`400 16px ${FONT}`);
+  bootAt = performance.now();
   sizeOverlay();
   buildPlan();
   window.addEventListener("ascii-grid", buildPlan);     // a fresh grid: new donors, new thresholds
