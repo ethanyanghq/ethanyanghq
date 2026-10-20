@@ -286,8 +286,8 @@ function frame(t) {
   A.setP(p);
   if (p > 0 || target > 0) restSince = t;
   if (down && up) {                                      // down: in after a moment, out with the first scroll; up: in at the end
-    setCue(down, clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.85);
-    setCue(up, clamp01((p - 1 + CUE_FADE) / CUE_FADE) * 0.85);
+    setCue(down, clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.5);
+    setCue(up, clamp01((p - 1 + CUE_FADE) / CUE_FADE) * 0.5);
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
