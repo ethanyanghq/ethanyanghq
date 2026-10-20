@@ -197,7 +197,8 @@ if (down && up) {
   for (const ev of ["wheel", "touchstart", "keydown", "mousedown"]) window.addEventListener(ev, stopAuto, { passive: true });
 }
 function setCue(el, c) {                                 // a cue's opacity; .off while invisible
-  if (Math.abs(c - (el.cue ?? -1)) <= 0.01) return;
+  const last = el.cue ?? -1;
+  if (c === last || c > 0 && Math.abs(c - last) <= 0.01) return;   // tiny steps skipped, exact zero never
   el.cue = c; el.style.setProperty("--cue", c.toFixed(2)); el.classList.toggle("off", c === 0);
 }
 function sizeOverlay() {
