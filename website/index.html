@@ -67,6 +67,28 @@
       display: none;
     }
     html.gl #fx { display: block; }
+
+    /* a small cue at the foot of the portrait: click and the page is scrolled through at a reading
+       pace (reveal.js sets --cue: fades in after a moment, fades out as soon as you scroll) */
+    #down {
+      position: fixed;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      display: none;
+      padding: 6px 12px;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      font: 400 16px "DejaVu Sans Mono Web", "DejaVu Sans Mono", monospace;
+      line-height: 1;
+      cursor: pointer;
+      opacity: var(--cue, 0);
+      z-index: 2;
+    }
+    html.gl #down { display: block; }
+    #down.off { pointer-events: none; }
+    #down:hover, #down:focus-visible { opacity: 1; outline: none; }
     /* The bio: real text, centred. With the renderer running, each character is revealed as the
        painting donates it; without it (no JS, no WebGL) the text is simply shown. */
     .bio {
@@ -120,6 +142,7 @@
 <body>
   <canvas id="stage" role="img" aria-label="ASCII rendering of the painting Homunculus Loxodontus"></canvas>
   <canvas id="fx" aria-hidden="true"></canvas>
+  <button id="down" class="off" type="button" aria-label="Scroll down through the page">&#8595;</button>
   <section class="bio" aria-label="About">
     <h1>ethan yang</h1>
     <p>product engineer, working on ai.<br>
