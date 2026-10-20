@@ -222,7 +222,7 @@ function frame(t) {
   A.setP(p);
   if (p > 0 || target > 0) restSince = t;
   if (down) {                                            // cue: in after a moment, out with the first scroll
-    const c = clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.6;
+    const c = clamp01(1 - p / CUE_FADE) * clamp01((t - bootAt - 1200) / 1500) * 0.85;
     if (Math.abs(c - cue) > 0.01) { cue = c; down.style.setProperty("--cue", c.toFixed(2)); down.classList.toggle("off", c === 0); }
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

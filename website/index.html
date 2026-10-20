@@ -73,22 +73,28 @@
     #down {
       position: fixed;
       left: 50%;
-      bottom: 10px;
-      transform: translateX(-50%);
+      bottom: 14px;
       display: none;
-      padding: 6px 12px;
+      padding: 8px 16px;
       border: 0;
       background: none;
       color: var(--ink);
-      font: 400 16px "DejaVu Sans Mono Web", "DejaVu Sans Mono", monospace;
+      font: 700 28px "DejaVu Sans Mono Web", "DejaVu Sans Mono", monospace;
       line-height: 1;
+      text-shadow: 0 0 10px var(--bg), 0 0 4px var(--bg);
       cursor: pointer;
       opacity: var(--cue, 0);
       z-index: 2;
+      animation: bob 2.4s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, 7px); }
     }
     html.gl #down { display: block; }
     #down.off { pointer-events: none; }
     #down:hover, #down:focus-visible { opacity: 1; outline: none; }
+    @media (prefers-reduced-motion: reduce) { #down { animation: none; transform: translateX(-50%); } }
     /* The bio: real text, centred. With the renderer running, each character is revealed as the
        painting donates it; without it (no JS, no WebGL) the text is simply shown. */
     .bio {
