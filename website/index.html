@@ -76,15 +76,16 @@
     /* the name, in the corner from the first paint; it hands over to the heading once that has landed */
     #name {
       position: fixed;
-      top: 14px;
-      left: 16px;
+      top: 10px;
+      left: 10px;
       margin: 0;
+      padding: 6px 7px;
       display: none;
       font-size: 14px;
       font-weight: 400;
       line-height: 1;
       color: var(--ink);
-      opacity: 0.75;
+      background: var(--bg);     /* clears the cells under it, so it reads on the dense top-left */
       transition: opacity 0.5s;
       pointer-events: none;
       z-index: 2;
