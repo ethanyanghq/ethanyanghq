@@ -25,7 +25,7 @@ const CLEARING = [0.03, 0.14];    // the cells under the text block leave first
 const WORD_MARK = 0.3;            // first part of a word's window: its letters highlight in place
 const LIFT = 0.12;                // part of a letter's flight spent rising out of the cell
 const NEVER = 2;                  // "leaves at" for cells that stay (spaces)
-const IDLE_MS = 8000;             // at rest this long, the first word's cells light up: a cue to scroll
+const IDLE_MS = 4000;             // at rest this long, the first word's cells light up: a cue to scroll
 const GEAR_WORD = "factorio";     // once landed, its o's are drawn as small cogs, turning against each other
 const GEAR_PERIOD = 12;           // seconds per revolution
 const GEAR_TEETH = 8;
@@ -205,6 +205,7 @@ let bootAt = 0;                                          // when the renderer ca
 
 // ---- the scroll cues: click and the page scrolls itself, down to the end or back to the top ----
 const down = document.getElementById("down"), up = document.getElementById("up");
+const nameEl = document.getElementById("name");
 let auto = null;                                         // the running auto-scroll's step function
 function autoScroll(to) {
   const from = scrollY;
@@ -358,6 +359,10 @@ function frame(t) {
     ctx.fillText(L.ch, L.x, L.y);
   }
   ctx.globalAlpha = 1;
+  if (nameEl) {                                          // the corner name yields to the heading once it has landed
+    const off = letters.every(L => L.word > 1 || L.on || L.landedAt != null);
+    if (off !== nameEl.classList.contains("off")) nameEl.classList.toggle("off", off);
+  }
   for (const [a, ls] of links) {
     const on = ls.every(L => L.on || L.gear != null && p >= L.fly1);
     if (on !== a.classList.contains("on")) a.classList.toggle("on", on);
