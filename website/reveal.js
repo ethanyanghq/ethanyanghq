@@ -204,6 +204,44 @@ function buildPlan() {
 }
 function w0(words) { return words.length && words[0].length ? words[0][0].size : 16; }
 
+// ---- the corner name: yields to the heading cell by cell (through a flicker of light glyphs,
+// like the painting's quiet cells) rather than fading, and at rest one glyph twinkles now and then
+const nameEl = document.getElementById("name");
+const NAME_TEXT = nameEl ? nameEl.textContent : "";
+const NAME_NOISE = "`'.,:;-^\"~";
+const NAME_DISSOLVE = 450;                               // ms for the whole name to go (or come back)
+const NAME_FLICKER = 0.15;                               // the slice of that each cell spends as noise
+const NAME_TWINKLE = [1800, 4200], NAME_BLINK = 110;     // ms between twinkles (range), and how long one lasts
+const nameCells = [];                                    // { i, th } per drawn character: th = when it goes
+{
+  const r = rng(11);
+  for (let i = 0; i < NAME_TEXT.length; i++) if (NAME_TEXT[i] !== " " && NAME_TEXT[i] !== "\n") nameCells.push({ i, th: r() * (1 - NAME_FLICKER) });
+}
+let nameVis = 1, namePrevT = 0, nameLast = NAME_TEXT;
+let twinkle = { cell: null, at: performance.now() + 3000, glyph: "" };
+function drawName(t) {
+  if (!nameEl || !NAME_TEXT) return;
+  const off = letters.every(L => L.word > 1 || L.on || L.landedAt != null);
+  if (off !== nameEl.classList.contains("off")) nameEl.classList.toggle("off", off);   // the pad fades with it
+  if (REDUCED) return;
+  const dt = namePrevT ? Math.min(100, t - namePrevT) : 0;
+  namePrevT = t;
+  nameVis = clamp01(nameVis + (off ? -dt : dt) / NAME_DISSOLVE);
+  const out = NAME_TEXT.split("");
+  for (const c of nameCells) {
+    const v = nameVis - c.th;                            // < 0 gone, then a flicker, then the glyph
+    if (v < 0) out[c.i] = " ";
+    else if (v < NAME_FLICKER) out[c.i] = NAME_NOISE[(c.i * 7 + Math.floor(t / 60)) % NAME_NOISE.length];
+  }
+  if (!off && nameVis >= 1) {
+    if (twinkle.cell && t > twinkle.at + NAME_BLINK) { twinkle.cell = null; twinkle.at = t + NAME_TWINKLE[0] + Math.random() * (NAME_TWINKLE[1] - NAME_TWINKLE[0]); }
+    else if (!twinkle.cell && t > twinkle.at) { twinkle.cell = nameCells[Math.floor(Math.random() * nameCells.length)]; twinkle.at = t; twinkle.glyph = NAME_NOISE[Math.floor(Math.random() * NAME_NOISE.length)]; }
+    if (twinkle.cell) out[twinkle.cell.i] = twinkle.glyph;
+  } else twinkle.cell = null;
+  const s = out.join("");
+  if (s !== nameLast) { nameLast = s; nameEl.textContent = s; }
+}
+
 // ---- per frame: scroll -> p, the shader's uP, flights on the overlay ----------------------
 let p = 0, target = 0, W = 0, H = 0, dpr = 1;
 let speed = 0;                                           // signed change of p over the last frame
@@ -212,7 +250,6 @@ let bootAt = 0;                                          // when the renderer ca
 
 // ---- the scroll cues: click and the page scrolls itself, down to the end or back to the top ----
 const down = document.getElementById("down"), up = document.getElementById("up");
-const nameEl = document.getElementById("name");
 let auto = null;                                         // the running auto-scroll's step function
 function autoScroll(to) {
   const from = scrollY;
@@ -366,10 +403,7 @@ function frame(t) {
     ctx.fillText(L.ch, L.x, L.y);
   }
   ctx.globalAlpha = 1;
-  if (nameEl) {                                          // the corner name yields to the heading once it has landed
-    const off = letters.every(L => L.word > 1 || L.on || L.landedAt != null);
-    if (off !== nameEl.classList.contains("off")) nameEl.classList.toggle("off", off);
-  }
+  drawName(t);
   for (const [a, ls] of links) {
     const on = ls.every(L => L.on || L.gear != null && p >= L.fly1);
     if (on !== a.classList.contains("on")) a.classList.toggle("on", on);
