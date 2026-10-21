@@ -73,17 +73,21 @@
     }
     html.gl #fx { display: block; }
 
-    /* the name, in the corner from the first paint; it hands over to the heading once that has landed */
+    /* the name, in the corner from the first paint, drawn in the grid's own small glyphs (figlet "small");
+       sized like a converted cell (8px / 1.204, see renderer.js) and re-locked to the real cell size once
+       the grid is up. It hands over to the heading once that has landed. */
     #name {
       position: fixed;
       top: 10px;
       left: 10px;
       margin: 0;
-      padding: 6px 7px;
+      padding: 5px 10px;
       display: none;
-      font-size: 14px;
-      font-weight: 400;
-      line-height: 1;
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1.204;
+      white-space: pre;
       color: var(--ink);
       background: var(--bg);     /* clears the cells under it, so it reads on the dense top-left */
       transition: opacity 0.5s;
@@ -168,7 +172,11 @@
 <body>
   <canvas id="stage" role="img" aria-label="ASCII rendering of the painting Homunculus Loxodontus"></canvas>
   <canvas id="fx" aria-hidden="true"></canvas>
-  <p id="name" aria-hidden="true">ethan yang</p>
+<pre id="name" aria-hidden="true">     _   _
+ ___| |_| |_  __ _ _ _    _  _ __ _ _ _  __ _
+/ -_)  _| ' \/ _` | ' \  | || / _` | ' \/ _` |
+\___|\__|_||_\__,_|_||_|  \_, \__,_|_||_\__, |
+                          |__/          |___/ </pre>
   <button id="down" class="off" type="button" aria-label="Scroll down through the page"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8l7 7 7-7"/></svg></button>
   <button id="up" class="off" type="button" aria-label="Scroll back to the top"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14l7-7 7 7"/></svg></button>
   <section class="bio" aria-label="About">

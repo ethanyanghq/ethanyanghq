@@ -192,6 +192,13 @@ function buildPlan() {
   for (const L of letters) if (L.r >= 0) { rg[2 * (L.r * cols + L.c)] = L.fly0; rg[2 * (L.r * cols + L.c) + 1] = 0; }
   A.setGone(rg, cols, rows);
   plan = { cw, ch, ox, cols, rows, borrowed };
+  if (nameEl) {                                          // lock the corner name to the grid: its cell size, on cell boundaries
+    nameEl.style.fontSize = `${ch / 1.204}px`;
+    nameEl.style.lineHeight = `${ch}px`;
+    nameEl.style.left = `${ox}px`;
+    nameEl.style.top = "0";
+    nameEl.style.padding = `${ch}px ${2 * cw}px`;        // one row above and below, two cells either side
+  }
   for (const L of letters) L.on = undefined;             // force the span states to be re-applied
   for (const [a] of links) a.classList.remove("on");
 }
