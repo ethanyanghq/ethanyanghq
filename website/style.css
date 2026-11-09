@@ -35,7 +35,10 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win-grab::after{content:"";position:absolute;right:9px;bottom:9px;width:5px;height:5px;border-right:1px solid var(--fg);border-bottom:1px solid var(--fg)}
 .win.flat-x{border-right:0}   .win.flat-y{border-bottom:0}
 .win.flat-x .win-body,.win.flat-y .win-body{display:none}
-.win.flat-x.flat-y{border:0;background:none}                       /* the caret alone marks the window */
 .win.flat-x .win-grab::after,.win.flat-y .win-grab::after{right:7px;bottom:7px}   /* caret sits on the line's end */
+/* fully closed: a short diagonal from the anchor, pointing the way the window reopens; drawn aliased like the sky */
+.win.flat-x.flat-y{border:0;background:none}
+.win.flat-x.flat-y .win-grab::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Cpath d='M0 0L7 7' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E") no-repeat}
 [hidden]{display:none!important}
 @media (max-width:520px){.top{padding-block:16px}}
