@@ -1,0 +1,30 @@
+/* The sky is the page. One fixed WebGL canvas rendered at 1 CSS px with no anti-aliasing;
+   a header (name left, links right) and body labels are the only HTML. Black, white, monospace. */
+:root{
+  color-scheme:dark;
+  --bg:#000;
+  --fg:#fff;
+  --mute:#8a8a8a;
+  --dim:#5e5e5e;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--mono);overflow:hidden}
+#sky{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:var(--bg);image-rendering:pixelated;image-rendering:crisp-edges}
+.top{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
+  padding-block:22px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));pointer-events:none;z-index:3}
+.top a{pointer-events:auto}
+.who{min-width:0}
+h1{font-size:13px;font-weight:400;margin:0}
+.clock{margin:6px 0 0;color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums;max-width:34ch}
+.links{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex-shrink:0}
+.links a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
+.links a:hover,.links a:focus-visible{color:var(--mute);outline:none}
+#layer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.lbl{position:absolute;left:0;top:0;transform:translate(-1000px,-1000px);background:none;border:0;padding:2px 4px;margin:0;color:var(--mute);
+  font:12px var(--mono);cursor:pointer;pointer-events:auto;will-change:transform;white-space:nowrap;line-height:1;text-transform:uppercase;letter-spacing:.04em}
+.lbl.moon{color:var(--dim);font-size:11px}
+.lbl:hover,.lbl.on{color:var(--fg)}
+.lbl:focus-visible{outline:1px solid var(--mute);outline-offset:2px}
+[hidden]{display:none!important}
+@media (max-width:520px){.top{padding-block:16px}}
