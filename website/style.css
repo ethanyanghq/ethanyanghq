@@ -26,23 +26,33 @@ h1{font-size:15px;font-weight:400;margin:0}
 .lbl.moon{color:var(--dim)}
 .lbl:hover,.lbl.on{color:var(--fg)}
 .lbl:focus-visible{outline:1px solid var(--mute);outline-offset:2px}
-/* windows: thin black box above the sky, moved by dragging anywhere on it, resized from one corner.
-   The bottom-right handle carries a small L caret nested inside the border. Dragged to zero width or height
+/* windows: thin black box above the sky, moved by dragging anywhere on it, resized from any corner.
+   Every corner resizes; the bottom-right one carries a small L caret nested inside the border. Dragged to zero width or height
    the box becomes a line; to both, only the caret remains. */
 .win{position:fixed;left:0;top:0;z-index:10;box-sizing:border-box;border:1px solid var(--fg);background:var(--bg);cursor:move;touch-action:none;user-select:none;will-change:transform}
 .win-body{position:absolute;inset:0;overflow:hidden}
-.win-grab{position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;z-index:1;cursor:nwse-resize}
-.win-grab::after{content:"";position:absolute;right:9px;bottom:9px;width:5px;height:5px;border-right:1px solid var(--fg);border-bottom:1px solid var(--fg)}
+/* a porthole's page: viewport-sized, counter-translated by win.js so it never moves; it takes no input */
+.win-view{position:absolute;left:0;top:0;width:100vw;height:100vh;border:0;background:var(--bg);pointer-events:none}
+.win-tag{position:absolute;left:-1px;bottom:100%;margin-bottom:3px;color:var(--mute);font:15px var(--font);line-height:1;white-space:nowrap;
+  text-transform:lowercase;text-decoration:none;cursor:pointer;z-index:2}
+.win-tag:hover,.win-tag:focus-visible{color:var(--fg);outline:none}
+/* four corner handles, 16px square, centred a little outside each corner. Only the bottom-right one is drawn. */
+.win-grab{position:absolute;width:16px;height:16px;z-index:1}
+.win-grab.nw{left:-7px;top:-7px;cursor:nwse-resize}      .win-grab.ne{right:-7px;top:-7px;cursor:nesw-resize}
+.win-grab.se{right:-7px;bottom:-7px;cursor:nwse-resize}  .win-grab.sw{left:-7px;bottom:-7px;cursor:nesw-resize}
+.win-grab.se::after{content:"";position:absolute;right:9px;bottom:9px;width:5px;height:5px;border-right:1px solid var(--fg);border-bottom:1px solid var(--fg)}
 .win.flat-x{border-right:0}   .win.flat-y{border-bottom:0}
 .win.flat-x .win-body,.win.flat-y .win-body{display:none}
+/* collapsed, only the caret's handle remains */
+.win.flat-x .win-grab:not(.se),.win.flat-y .win-grab:not(.se){display:none}
 /* on a line the caret's corner is the line's last pixel. The offsets differ by one because the flat axis has lost
    its far border while the other axis still has it. */
-.win.flat-x .win-grab::after{right:7px;bottom:6px}
-.win.flat-y .win-grab::after{right:6px;bottom:7px}
-/* fully closed: a short diagonal whose first pixel is the anchor (the top-left corner, where both lines start),
-   pointing the way the window reopens. One rect per pixel so it stays a hard staircase at any pixel density. */
+.win.flat-x .win-grab.se::after{right:7px;bottom:6px}
+.win.flat-y .win-grab.se::after{right:6px;bottom:7px}
+/* fully closed: a short diagonal whose first pixel is the point the window collapsed to, running down and to the
+   right, the way the caret's corner sits. One rect per pixel so it stays a hard staircase at any pixel density. */
 .win.flat-x.flat-y{border:0;background:none}
-.win.flat-x.flat-y .win-grab::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
+.win.flat-x.flat-y .win-grab.se::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3C/svg%3E") no-repeat}
 [hidden]{display:none!important}
 @media (max-width:520px){.top{padding-block:16px}}
