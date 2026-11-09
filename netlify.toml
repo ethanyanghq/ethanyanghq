@@ -3,7 +3,7 @@
   publish = "website"
   command = "rm -f website/*.py website/ascii_homunculus_loxodontus_*.txt website/fonts/*.ttf website/src/homunculus_loxodontus.png website/src/ref_300.txt"
 
-# Alias domains redirect to the primary domain so the site lives at one URL.
+# Alias domain redirects to the primary domain so the site lives at one URL.
 [[redirects]]
   from = "https://ethanyanghq.com/*"
   to = "https://ethanyang.io/:splat"
@@ -12,18 +12,6 @@
 
 [[redirects]]
   from = "http://ethanyanghq.com/*"
-  to = "https://ethanyang.io/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "https://ethanyanghq.dev/*"
-  to = "https://ethanyang.io/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "http://ethanyanghq.dev/*"
   to = "https://ethanyang.io/:splat"
   status = 301
   force = true
