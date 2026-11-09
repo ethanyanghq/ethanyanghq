@@ -1,5 +1,5 @@
 /* Window primitive. A box bounded by thin black lines that floats above the sky, independent of the camera.
-   Drag anywhere on it to move. One handle, the bottom-right corner, resizes; the top-left is the anchor.
+   Drag anywhere on it to move. One handle, the top-right corner, resizes; the bottom-left is the anchor.
    Drag the handle all the way in and the window collapses to a line, then to the caret alone: there is no
    minimised state, only geometry. No buttons, no chrome, no animation: input is direct.
    Contents are left to the caller: makeWindow() returns the element, and its .body is the slot to fill. */
@@ -31,7 +31,10 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200} = {}){
     const target = e.target; target.setPointerCapture(e.pointerId);
     const move = ev => {
       const dx = ev.clientX - sx, dy = ev.clientY - sy;
-      if(resize){ r.w = o.w + dx; r.h = o.h + dy; if(r.w < SNAP) r.w = 0; if(r.h < SNAP) r.h = 0; }
+      if(resize){ /* the handle is top-right: width follows the pointer, height grows upward from the fixed bottom edge */
+        r.w = o.w + dx; r.h = Math.min(o.h - dy, o.y + o.h);
+        if(r.w < SNAP) r.w = 0; if(r.h < SNAP) r.h = 0;
+        r.y = o.y + o.h - r.h; }
       else { r.x = o.x + dx; r.y = o.y + dy; }
       place();
     };
