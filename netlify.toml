@@ -16,6 +16,18 @@
   status = 301
   force = true
 
+[[redirects]]
+  from = "https://www.ethanyanghq.com/*"
+  to = "https://ethanyang.io/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.ethanyanghq.com/*"
+  to = "https://ethanyang.io/:splat"
+  status = 301
+  force = true
+
 [[headers]]
   for = "/fonts/*"
   [headers.values]
