@@ -1,0 +1,6 @@
+# Everyone may crawl everything, including AI search and answer engines
+# (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended and the rest).
+User-agent: *
+Allow: /
+
+Sitemap: https://ethanyang.io/sitemap.xml
