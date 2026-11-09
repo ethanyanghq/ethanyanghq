@@ -1,0 +1,7 @@
+# Every other domain lands on ethanyang.io, keeping the path. Each one must also be a
+# domain alias of this Netlify site, or Netlify won't accept its traffic at all.
+# www.ethanyang.io needs no rule: Netlify redirects the primary domain's www itself.
+https://ethanyanghq.com/*      https://ethanyang.io/:splat  301!
+http://ethanyanghq.com/*       https://ethanyang.io/:splat  301!
+https://www.ethanyanghq.com/*  https://ethanyang.io/:splat  301!
+http://www.ethanyanghq.com/*   https://ethanyang.io/:splat  301!
