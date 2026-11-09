@@ -153,9 +153,9 @@ const STRIDE = 7, NINST = NALL + 1;                     /* + Saturn's ring */
 const inst = new Float32Array(NINST*STRIDE);
 const ibuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ibuf); gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW);
 for(const [loc, size, off] of [[1,2,0],[2,1,2],[3,3,3],[4,1,6]]){ gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, STRIDE*4, off*4); gl.vertexAttribDivisor(loc, 1); }
-for(let i=0;i<NALL;i++){ const o = i*STRIDE; const blue = ALL[i].blue; inst[o+3] = blue ? 0.66 : 1; inst[o+4] = blue ? 0.80 : 1; inst[o+5] = 1; inst[o+6] = 0; }
+for(let i=0;i<NALL;i++){ const o = i*STRIDE; inst[o+3] = 0; inst[o+4] = 0; inst[o+5] = 0; inst[o+6] = 0;   /* every body is ink-black on the white page */ }
 { const o = NALL*STRIDE; inst[o+3] = inst[o+4] = inst[o+5] = 0.6; inst[o+6] = 1; }
-gl.clearColor(0,0,0,1);
+gl.clearColor(1,1,1,1);
 
 /* ---------- viewport ---------- */
 let vw = 1, vh = 1;
