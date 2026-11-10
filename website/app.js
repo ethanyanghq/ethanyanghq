@@ -16,8 +16,8 @@ const canvas = document.getElementById('sky');
 const layer = document.getElementById('layer');
 const clockEl = document.getElementById('clock');
 const gl = canvas.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false, powerPreference:'high-performance'});
-if(!gl){ clockEl.textContent = 'This page needs WebGL2.'; return; }
-if(!A){ clockEl.textContent = 'The ephemeris failed to load.'; return; }
+if(!gl){ console.warn('No WebGL2: the sky is not drawn.'); return; }   /* the clock line keeps its description */
+if(!A){ console.warn('The ephemeris failed to load: the sky is not drawn.'); return; }
 
 /* ---------- constants ---------- */
 const AU_KM = 149597870.7, DAY_MS = 86400e3, D2R = Math.PI/180;
@@ -141,7 +141,7 @@ function shader(type, src){ const s = gl.createShader(type); gl.shaderSource(s, 
   if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; }
 const prog = gl.createProgram();
 gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
-if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); clockEl.textContent = 'The renderer failed to start.'; return; }
+if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ console.error('The renderer failed to start:', gl.getProgramInfoLog(prog)); return; }
 gl.useProgram(prog);
 const U = {}; for(const n of ['uRes','uRingDir','uRingK','uRingPx']) U[n] = gl.getUniformLocation(prog, n);
 gl.uniform2f(U.uRingDir, RING_DIR[0], RING_DIR[1]); gl.uniform1f(U.uRingK, RING_K);
