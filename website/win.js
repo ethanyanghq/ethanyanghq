@@ -94,8 +94,15 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = ''} = 
 
 window.makeWindow = makeWindow;
 
-/* Doppel's panel is 720px wide, centred, 48px from the top: start over its title bar and name field.
-   On a narrow screen that spot is under the header, so start below it instead. */
-makeWindow({x: Math.max(12, Math.round(innerWidth / 2) - 372), y: innerWidth < 700 ? 110 : 36, w: Math.min(420, innerWidth - 24), h: 230,
-  url: 'https://doppel.ethanyang.io/', label: 'doppel'});
+/* Doppel's panel is 720px wide, centred, 48px from the top. Start as a small crop of its top-left corner: a strip of
+   its dot ground, the title bar and the question line, stopping just above the NAME chip. Where that crop would run
+   into the clock (which can grow to its max-width once it starts ticking), drop below the header instead. */
+{
+  const clock = document.getElementById('clock'), head = document.querySelector('.top');
+  const clear = clock.getBoundingClientRect().left + (parseFloat(getComputedStyle(clock).maxWidth) || 0) + 24;
+  const w = Math.min(300, innerWidth - 24), h = 80;
+  let x = Math.round(innerWidth / 2) - 376, y = 40;
+  if(x < clear){ x = Math.max(12, x); y = Math.round(head.getBoundingClientRect().bottom) + 8; }
+  makeWindow({x, y, w, h, url: 'https://doppel.ethanyang.io/', label: 'doppel'});
+}
 })();
