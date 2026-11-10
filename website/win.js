@@ -94,7 +94,7 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = ''} = 
 
 window.makeWindow = makeWindow;
 
-/* The shelf: windows start as thin slats stacked down the left gutter, under the name and clock, one per project.
+/* The shelf: windows start as thin slats stacked down the left gutter, under the header, one per project.
    Each is a slice of its page at that spot, wide enough to reach from the page's margin into its content, set one step
    in from the name so the shelf reads as a list under it, not as more header. They are ordinary windows: drag one out or pull a corner to open it.
    Doppel's slat crosses its dot ground and the edge of its panel, at the height of the NAME chip. */

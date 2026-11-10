@@ -20,7 +20,9 @@ h1{font-size:15px;font-weight:400;margin:0}
 .bio{margin:6px 0 0}
 .ledger{display:grid;grid-template-columns:auto 1fr;column-gap:12px;margin-top:6px}
 .ledger .k{color:var(--mute)}
-.clock{margin:6px 0 0;color:var(--mute);font-size:15px;font-variant-numeric:tabular-nums;max-width:34ch}
+/* the clock sits in the bottom-left corner, on the same gutters as the header */
+.clock{position:fixed;left:max(24px,env(safe-area-inset-left,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));margin:0;
+  color:var(--mute);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;max-width:34ch;pointer-events:none;z-index:3}
 .links{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex-shrink:0}
 .top a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
 .top a:hover,.top a:focus-visible{color:var(--mute);outline:none}
@@ -59,4 +61,4 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win.flat-x.flat-y .win-grab.se::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3C/svg%3E") no-repeat}
 [hidden]{display:none!important}
-@media (max-width:520px){.top{padding-block:16px}}
+@media (max-width:520px){.top{padding-block:16px}.clock{bottom:max(16px,env(safe-area-inset-bottom,0px))}}
