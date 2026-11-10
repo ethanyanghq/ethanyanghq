@@ -27,7 +27,7 @@ h1{font-size:15px;font-weight:400;margin:0}
 .lbl:hover,.lbl.on{color:var(--fg)}
 .lbl:focus-visible{outline:1px solid var(--mute);outline-offset:2px}
 /* windows: thin black box above the sky, moved by dragging anywhere on it, resized from any corner.
-   Every corner resizes; the bottom-right one carries a small L caret nested inside the border. Dragged to zero width or height
+   Every corner resizes; the bottom-right one carries a small L caret wrapped around the outside of the corner, 2px clear of the border. Dragged to zero width or height
    the box becomes a line; to both, only the caret remains. */
 .win{position:fixed;left:0;top:0;z-index:10;box-sizing:border-box;border:1px solid var(--fg);background:var(--bg);cursor:move;touch-action:none;user-select:none;will-change:transform}
 .win-body{position:absolute;inset:0;overflow:hidden}
@@ -40,7 +40,7 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win-grab{position:absolute;width:16px;height:16px;z-index:1}
 .win-grab.nw{left:-7px;top:-7px;cursor:nwse-resize}      .win-grab.ne{right:-7px;top:-7px;cursor:nesw-resize}
 .win-grab.se{right:-7px;bottom:-7px;cursor:nwse-resize}  .win-grab.sw{left:-7px;bottom:-7px;cursor:nesw-resize}
-.win-grab.se::after{content:"";position:absolute;right:9px;bottom:9px;width:5px;height:5px;border-right:1px solid var(--fg);border-bottom:1px solid var(--fg)}
+.win-grab.se::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-right:1px solid var(--fg);border-bottom:1px solid var(--fg)}
 .win.flat-x{border-right:0}   .win.flat-y{border-bottom:0}
 .win.flat-x .win-body,.win.flat-y .win-body{display:none}
 /* collapsed, only the caret's handle remains */
