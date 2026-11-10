@@ -1,0 +1,33 @@
+# Ethan Yang
+
+> Ethan Yang is a product engineer and product manager studying Information Science (minor in Computer Science) at Cornell University, class of 2028.
+
+## Education
+
+- Cornell University, B.A. Information Science, minor in Computer Science (2024–2028).
+- Milstein Scholar: one of 25 selected for a four-year track in human-technology interaction research.
+- Ran a 300-person hackathon with the Claude Builders Club. Member of Armada, a builder club.
+
+## Experience
+
+- SafetyWing (YC-backed insurtech), Product Engineering Intern, summer 2026. Shipped production code for an internal automation and compliance platform serving 30,000+ members. Built a harness that let AI coding agents migrate ~150 dashboard files, each tested in its own Docker container. Designed an automated payment reconciliation system that recovered ~$20k/month. Built and launched Autoview, which generates dashboard pages from the API spec and flags pages that break when the API changes.
+- Cornell Tech, Milstein Summer Fellow, summer 2025. Owned product and built the filtering UI for IoNYC, an open-source React platform making 12,000+ NYC Participatory Budgeting ideas searchable. Led 15+ user interviews with NYC Council staff; piloted with the NYC Civic Engagement Commission.
+
+## Projects
+
+- HSPorter (hsporter.com), co-founder. AI tariff classification with human-in-the-loop review. Selected for an in-person Y Combinator interview. Built a RAG pipeline that cut LLM cost per query ~80% at 95% top-3 accuracy across 19,000+ tariff codes.
+- Ithaca Insights (ithacainsights.com), lead developer. Open-source dashboard showing Ithaca renters whether a listing is overpriced. Vue + Leaflet frontend, FastAPI backend, natural-language map search without an LLM.
+
+## Links
+
+- [Website](https://ethanyang.io/): live true-scale solar system
+- [GitHub](https://github.com/ethanyanghq): code, including the source of this site
+- [LinkedIn](https://www.linkedin.com/in/eycyang/): work history
+- [X / Twitter](https://x.com/ethanyanghq)
+- [HSPorter](https://hsporter.com/)
+- [Ithaca Insights](https://ithacainsights.com/)
+
+## The site
+
+- Every planet and named moon, positioned for the current moment from astronomy-engine (VSOP87) and JPL mean orbital elements.
+- Drawn at one pixel per pixel with no size floor: a body too small to cover a pixel is left undrawn, and its label marks the spot.
