@@ -100,6 +100,7 @@ window.makeWindow = makeWindow;
    Doppel's slat crosses its dot ground and the edge of its panel, at the height of the NAME chip. */
 const SHELF = [
   {url: 'https://doppel.ethanyang.io/', label: 'doppel'},
+  {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city'},
 ];
 const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
 SHELF.forEach((p, i) => makeWindow({x: GUTTER + INDENT, y: 118 + i * PITCH, w: Math.min(420 - INDENT, innerWidth - 2 * GUTTER - INDENT), h: SLAT, ...p}));
