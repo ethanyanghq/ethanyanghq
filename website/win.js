@@ -1,8 +1,8 @@
 /* Window primitive. A box bounded by thin black lines that floats above the sky, independent of the camera.
-   Drag anywhere on it to move. Every corner resizes, with the opposite corner as the anchor; only the
-   bottom-right corner is marked, with a small L caret. Drag a corner all the way in and the window collapses to
-   a line, then to the caret alone: there is no minimised state, only geometry. A collapsed window reopens from
-   the caret only, in whichever direction it is pulled. No buttons, no chrome, no animation: input is direct.
+   Drag anywhere on it to move. Every corner resizes, with the opposite corner as the anchor; the
+   corners are unmarked and only the cursor changes over them. Drag a corner all the way in and the window collapses to
+   a line, then to a short diagonal: there is no minimised state, only geometry. A collapsed window reopens from
+   that mark only, in whichever direction it is pulled. No buttons, no chrome, no animation: input is direct.
    Contents are left to the caller: makeWindow() returns the element, and its .body is the slot to fill.
    Given a url, the window is a porthole onto that page: the page is laid out at full viewport size and stays
    fixed to the viewport, so moving the window pans across it. A press released without moving opens the page.
@@ -95,17 +95,25 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = '', no
 
 window.makeWindow = makeWindow;
 
-/* The shelf: windows start as thin slats stacked down the left gutter, under the header, one per project.
-   Each is a slice of its page at that spot, wide enough to reach from the page's margin into its content, set one step
-   in from the name so the shelf reads as a list under it, not as more header. They are ordinary windows: drag one out or pull a corner to open it.
-   Doppel's slat crosses its dot ground and the edge of its panel, at the height of the NAME chip. */
-const SHELF = [
-  {url: 'https://doppel.ethanyang.io/', label: 'doppel'},
-  {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city'},
-  {url: 'https://armada.build/', label: 'armada'},
-  {url: 'https://getscout.me/', label: 'scout', note: 'BigRed//Hacks, 1st Place (Photon Track)'},
+/* The pile: the project windows lie overlapped like papers on a desk, in the space between the header and the clock,
+   from the page indent to the middle of the screen (the whole width on a phone). Each window still shows its page at
+   that exact spot, so the rects were chosen for what lands in them; doppel, whose dots fill its whole page, takes the
+   left, where every other site is only margin. Later windows lie on top. Armada starts clear of doppel's right edge so
+   its label never sits on doppel. Rects are [x0, y0, x1, y1] as fractions of that space. They are ordinary windows:
+   drag one out or pull a corner to resize it, and a touched window comes to the top. */
+const PILE = [
+  {url: 'https://doppel.ethanyang.io/', label: 'doppel', rect: [0, .08, .38, .7]},
+  {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city', rect: [.3, 0, .86, .3]},
+  {url: 'https://armada.build/', label: 'armada', rect: [.42, .52, .72, .92]},
+  {url: 'https://getscout.me/', label: 'scout', note: 'BigRed//Hacks, 1st Place (Photon Track)', rect: [.56, .38, .9, .7]},
 ];
-const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
-const TOP = Math.round(document.querySelector('.who').getBoundingClientRect().bottom) + 46;   /* first slat: 46px under the header's last line, wherever the bio wraps */
-SHELF.forEach((p, i) => makeWindow({x: GUTTER + INDENT, y: TOP + i * PITCH, w: Math.min(420 - INDENT, innerWidth - 2 * GUTTER - INDENT), h: SLAT, ...p}));
+const X0 = 48;   /* px: the page gutter (24) plus one step in */
+const X1 = innerWidth < 600 ? innerWidth - 24 : Math.min(innerWidth / 2 - 24, X0 + 672);
+const Y0 = document.querySelector('.who').getBoundingClientRect().bottom + 46;   /* the header's last line, plus room for a label */
+const Y1 = document.getElementById('clock').getBoundingClientRect().top - 24;     /* one gutter above the clock */
+const RW = X1 - X0, RH = Y1 - Y0;
+PILE.forEach(({rect: [a, b, c, d], ...p}) => {
+  const x = X0 + Math.round(a * RW), y = Y0 + Math.round(b * RH);
+  makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: Y0 + Math.round(d * RH) - y, ...p});
+});
 })();
