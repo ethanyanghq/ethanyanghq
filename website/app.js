@@ -3,7 +3,8 @@
    JPL SSD mean orbital elements (data/moons.json, see tools/fetch_moons.py) for every other moon. */
 (function(){
   const el = document.getElementById('email'), addr = 'ethanyanghq@gmail.com'; let timer = 0;
-  function done(ok){ el.textContent = ok ? 'Copied' : addr; clearTimeout(timer); timer = setTimeout(() => { el.textContent = 'Email'; }, 1400); }
+  /* the address itself is the confirmation: it shows what was copied, and can still be read or selected if copying failed */
+  function done(){ el.textContent = addr; clearTimeout(timer); timer = setTimeout(() => { el.textContent = 'Email'; }, 2400); }
   function fallback(){ const ta = document.createElement('textarea'); ta.value = addr; ta.setAttribute('readonly',''); ta.style.cssText = 'position:fixed;opacity:0;left:-9999px'; document.body.appendChild(ta); ta.select();
     let ok = false; try { ok = document.execCommand('copy'); } catch(_) {} ta.remove(); done(ok); }
   el.addEventListener('click', e => { e.preventDefault();
