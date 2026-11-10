@@ -101,6 +101,7 @@ window.makeWindow = makeWindow;
 const SHELF = [
   {url: 'https://doppel.ethanyang.io/', label: 'doppel'},
   {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city'},
+  {url: 'https://armada.build/', label: 'armada'},
 ];
 const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
 const TOP = Math.round(document.querySelector('.who').getBoundingClientRect().bottom) + 46;   /* first slat: 46px under the header's last line, wherever the bio wraps */
