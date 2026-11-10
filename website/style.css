@@ -42,6 +42,11 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win-tag{position:absolute;left:-1px;bottom:100%;margin-bottom:3px;color:var(--mute);font:15px var(--font);line-height:1;white-space:nowrap;
   text-transform:lowercase;text-decoration:none;cursor:pointer;z-index:2}
 .win-tag:hover,.win-tag:focus-visible{color:var(--fg);outline:none}
+/* a label's note: real text, kept off screen (but readable by screen readers and find-in-page) until the label is hovered or focused,
+   then it runs on after the label in grey italics, keeping its own capitals */
+.win-note{margin-left:8px;color:var(--mute);text-transform:none;font-style:italic}
+/* only where there is hover to reveal it; on touch screens the note simply stays out */
+@media (hover:hover){.win-tag:not(:hover):not(:focus-visible) .win-note{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 /* four corner handles, 16px square, centred a little outside each corner. Only the bottom-right one is drawn. */
 .win-grab{position:absolute;width:16px;height:16px;z-index:1}
 .win-grab.nw{left:-7px;top:-7px;cursor:nwse-resize}      .win-grab.ne{right:-7px;top:-7px;cursor:nesw-resize}

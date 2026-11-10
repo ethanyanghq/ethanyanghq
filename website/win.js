@@ -29,7 +29,7 @@ function span(pos, size, d, lead, max){
   return [lo, hi - lo];
 }
 
-function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = ''} = {}){
+function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = '', note = ''} = {}){
   const el = document.createElement('div'); el.className = 'win';
   const body = document.createElement('div'); body.className = 'win-body'; el.appendChild(body); el.body = body;
   /* one handle per corner, named by the edges it moves; 'se' carries the caret */
@@ -45,6 +45,7 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = ''} = 
   if(label){
     tag = document.createElement(url ? 'a' : 'span'); tag.className = 'win-tag'; tag.textContent = label;
     if(url) tag.href = url;
+    if(note){ const n = document.createElement('span'); n.className = 'win-note'; n.textContent = note; tag.appendChild(n); }   /* real text, shown on hover: see .win-note */
     tag.draggable = false; el.appendChild(tag);
   }
   let dragged = false;
@@ -102,6 +103,7 @@ const SHELF = [
   {url: 'https://doppel.ethanyang.io/', label: 'doppel'},
   {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city'},
   {url: 'https://armada.build/', label: 'armada'},
+  {url: 'https://getscout.me/', label: 'scout', note: 'BigRed//Hacks, 1st Place (Photon Track)'},
 ];
 const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
 const TOP = Math.round(document.querySelector('.who').getBoundingClientRect().bottom) + 46;   /* first slat: 46px under the header's last line, wherever the bio wraps */
