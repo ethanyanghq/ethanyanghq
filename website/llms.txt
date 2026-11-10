@@ -16,6 +16,7 @@
 ## Projects
 
 - HSPorter (hsporter.com), co-founder. AI tariff classification with human-in-the-loop review. Selected for an in-person Y Combinator interview. Built a RAG pipeline that cut LLM cost per query ~80% at 95% top-3 accuracy across 19,000+ tariff codes.
+- Scout (getscout.me). An AI trip planner you add to your group text. 1st Place, Photon Track, BigRed//Hacks.
 - Ithaca Insights (ithacainsights.com), lead developer. Open-source dashboard showing Ithaca renters whether a listing is overpriced. Vue + Leaflet frontend, FastAPI backend, natural-language map search without an LLM.
 
 ## Links
@@ -25,6 +26,7 @@
 - [LinkedIn](https://www.linkedin.com/in/eycyang/): work history
 - [X / Twitter](https://x.com/ethanyanghq)
 - [HSPorter](https://hsporter.com/)
+- [Scout](https://getscout.me/)
 - [Ithaca Insights](https://ithacainsights.com/)
 
 ## The site
