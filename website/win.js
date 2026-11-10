@@ -103,5 +103,6 @@ const SHELF = [
   {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city'},
 ];
 const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
-SHELF.forEach((p, i) => makeWindow({x: GUTTER + INDENT, y: 118 + i * PITCH, w: Math.min(420 - INDENT, innerWidth - 2 * GUTTER - INDENT), h: SLAT, ...p}));
+const TOP = Math.round(document.querySelector('.who').getBoundingClientRect().bottom) + 46;   /* first slat: 46px under the header's last line, wherever the bio wraps */
+SHELF.forEach((p, i) => makeWindow({x: GUTTER + INDENT, y: TOP + i * PITCH, w: Math.min(420 - INDENT, innerWidth - 2 * GUTTER - INDENT), h: SLAT, ...p}));
 })();
