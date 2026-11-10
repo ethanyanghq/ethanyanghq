@@ -94,15 +94,13 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = ''} = 
 
 window.makeWindow = makeWindow;
 
-/* Doppel's panel is 720px wide, centred, 48px from the top. Start as a small crop of its top-left corner: a strip of
-   its dot ground, the title bar and the question line, stopping just above the NAME chip. Where that crop would run
-   into the clock (which can grow to its max-width once it starts ticking), drop below the header instead. */
-{
-  const clock = document.getElementById('clock'), head = document.querySelector('.top');
-  const clear = clock.getBoundingClientRect().left + (parseFloat(getComputedStyle(clock).maxWidth) || 0) + 24;
-  const w = Math.min(300, innerWidth - 24), h = 80;
-  let x = Math.round(innerWidth / 2) - 376, y = 40;
-  if(x < clear){ x = Math.max(12, x); y = Math.round(head.getBoundingClientRect().bottom) + 8; }
-  makeWindow({x, y, w, h, url: 'https://doppel.ethanyang.io/', label: 'doppel'});
-}
+/* The shelf: windows start as thin slats stacked down the left gutter, under the name and clock, one per project.
+   Each is a slice of its page at that spot, wide enough to reach from the page's margin into its content, set one step
+   in from the name so the shelf reads as a list under it, not as more header. They are ordinary windows: drag one out or pull a corner to open it.
+   Doppel's slat crosses its dot ground and the edge of its panel, at the height of the NAME chip. */
+const SHELF = [
+  {url: 'https://doppel.ethanyang.io/', label: 'doppel'},
+];
+const GUTTER = 24, INDENT = 24, SLAT = 28, PITCH = 56;   /* px: header gutter; shelf's step in from it; slat height; slat plus its label's room */
+SHELF.forEach((p, i) => makeWindow({x: GUTTER + INDENT, y: 118 + i * PITCH, w: Math.min(420 - INDENT, innerWidth - 2 * GUTTER - INDENT), h: SLAT, ...p}));
 })();
