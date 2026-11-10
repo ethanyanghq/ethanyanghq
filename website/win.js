@@ -95,11 +95,13 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = '', no
 
 window.makeWindow = makeWindow;
 
-/* The pile: the project windows lie overlapped like papers on a desk, in the space between the header and the clock,
-   from the page indent to the middle of the screen (the whole width on a phone). Each window still shows its page at
+/* The pile: the project windows lie overlapped like papers on a desk, under the header. The whole
+   composition is drawn at 80% of the space between the header and the clock, from the page indent to the middle of
+   the screen (the whole width on a phone), so the sky keeps the rest. Each window still shows its page at
    that exact spot, so the rects were chosen for what lands in them; doppel, whose dots fill its whole page, takes the
    left, where every other site is only margin. Later windows lie on top. Armada starts clear of doppel's right edge so
-   its label never sits on doppel. Rects are [x0, y0, x1, y1] as fractions of that space. They are ordinary windows:
+   its label never sits on doppel.
+   Rects are [x0, y0, x1, y1] as fractions of that space. They are ordinary windows:
    drag one out or pull a corner to resize it, and a touched window comes to the top. */
 const PILE = [
   {url: 'https://doppel.ethanyang.io/', label: 'doppel', rect: [0, .08, .38, .7]},
@@ -111,7 +113,7 @@ const X0 = 48;   /* px: the page gutter (24) plus one step in */
 const X1 = innerWidth < 600 ? innerWidth - 24 : Math.min(innerWidth / 2 - 24, X0 + 672);
 const Y0 = document.querySelector('.who').getBoundingClientRect().bottom + 46;   /* the header's last line, plus room for a label */
 const Y1 = document.getElementById('clock').getBoundingClientRect().top - 24;     /* one gutter above the clock */
-const RW = X1 - X0, RH = Y1 - Y0;
+const SCALE = .8, RW = (X1 - X0) * SCALE, RH = (Y1 - Y0) * SCALE;
 PILE.forEach(({rect: [a, b, c, d], ...p}) => {
   const x = X0 + Math.round(a * RW), y = Y0 + Math.round(b * RH);
   makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: Y0 + Math.round(d * RH) - y, ...p});
