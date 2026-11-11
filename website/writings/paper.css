@@ -1,0 +1,65 @@
+/* A paper on the site: the homepage's white paper, black ink and Times, set as an essay. A huge headline whose last
+   line is cut out of a one-bit photograph, a double rule, the epigraph typed like a tape transcript, then the text.
+   Notes live in the margins and appear only for the sentence under the pointer: see paper.js. */
+@font-face{font-family:"Courier Prime";src:url(/fonts/courier-prime.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+:root{
+  color-scheme:light;
+  --bg:#fff;
+  --fg:#000;
+  --mute:#5a5a5a;
+  --font:"Times New Roman",Times,"Nimbus Roman",serif;
+  --mono:"Courier Prime","Courier New",Courier,monospace;
+  --gutter:max(24px,env(safe-area-inset-left,0px));
+}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.55 var(--font);overflow-x:hidden}
+a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
+a:hover,a:focus-visible{color:var(--mute);outline:none}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.home{position:absolute;left:var(--gutter);top:max(22px,env(safe-area-inset-top,0px));font-size:15px;line-height:1.45}
+
+/* the headline: huge, tight, the full width; then the double rule */
+.mast{margin:0 var(--gutter);padding-top:calc(76px + env(safe-area-inset-top,0px))}
+.mast h1{margin:0;font:400 clamp(52px,12.6vw,172px)/.84 var(--font);letter-spacing:-.035em;text-transform:uppercase}
+.mast h1 span{display:block}
+/* the last line sits on a full-bleed strip of the court's exhibit photograph, dithered to pure black and white and drawn
+   one image pixel per CSS pixel, never smoothed; the letters are cut out of it in white. paper.js centres the crop. */
+.strip{margin:0 calc(-1 * var(--gutter));padding:.07em var(--gutter) 0;color:var(--bg);background-color:var(--fg);
+  background-repeat:no-repeat;background-position:50% 50%;image-rendering:pixelated}
+.rule{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 18px;margin:22px 0 0;padding:5px 0 4px;
+  border-top:3px double var(--fg);border-bottom:1px solid var(--fg);font-size:13px;line-height:1.45;letter-spacing:.06em;font-variant:small-caps}
+
+/* the text column, with the margins left free for the notes */
+.paper{position:relative;padding-bottom:96px}
+.paper > *{width:min(34em,calc(100% - 48px));margin-left:auto;margin-right:auto}
+.tq{display:grid;grid-template-columns:auto 1fr;column-gap:2ch;margin-top:44px;margin-bottom:36px;font:15px/1.55 var(--mono)}
+.tq blockquote{margin:0}
+.essay p{margin:0;hyphens:manual}
+.essay p + p{text-indent:1.6em}
+.essay blockquote{margin:.9em 1.6em;font-size:15px;line-height:1.5}
+.essay blockquote + p{text-indent:0}
+sup{font-size:.62em;line-height:0;vertical-align:.62em;margin-left:1px}
+.c{cursor:default;outline:none}
+
+.bib{margin-top:56px;padding-top:14px;border-top:1px solid var(--fg);font-size:15px;line-height:1.45}
+.bib h2{margin:0 0 12px;font:inherit;font-variant:small-caps;letter-spacing:.06em}
+.bib ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.bib li{padding-left:1.6em;text-indent:-1.6em}
+.url{overflow-wrap:anywhere}
+
+/* the margin note: a bar the height of the sentence, a short line out, then the note */
+.ov{position:absolute;inset:0;width:auto;margin:0;pointer-events:none}
+.ov .bar{position:absolute;width:1px;background:var(--fg)}
+.ov .tick{position:absolute;height:1px;background:var(--fg)}
+.ov .mn{position:absolute;font-size:13px;line-height:1.4;color:var(--mute);overflow-wrap:anywhere;pointer-events:auto}
+.ov .mn b{font-weight:400;color:var(--fg);margin-right:6px}
+.ov .mn.below{background:var(--bg);border-top:1px solid var(--fg);padding:4px 0 6px}
+
+@media (max-width:640px){
+  :root{--gutter:max(16px,env(safe-area-inset-left,0px))}
+  .home{top:max(16px,env(safe-area-inset-top,0px))}
+  .mast{padding-top:calc(64px + env(safe-area-inset-top,0px))}
+  .paper > *{width:calc(100% - 32px)}
+  .tq{grid-template-columns:1fr;row-gap:4px}
+}
+@media print{.home,.ov{display:none}.strip{color:var(--fg);background:none!important}}
