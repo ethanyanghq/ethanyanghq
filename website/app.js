@@ -288,7 +288,8 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - last)/1000; last = now; if(dt > 0.05) dt = 0.05; if(dt < 0) dt = 0;
   logWarp = smoothDamp(logWarp, Math.log(tWarp), wv, 0.25, dt);
-  if(tWarp === 1 && Math.abs(logWarp) < 1e-3){ logWarp = 0; wv.v = 0; simT = Date.now(); } else simT += dt*Math.exp(logWarp)*1000;
+  if(held !== null) simT = held;
+  else if(tWarp === 1 && Math.abs(logWarp) < 1e-3){ logWarp = 0; wv.v = 0; simT = Date.now(); } else simT += dt*Math.exp(logWarp)*1000;
   updatePositions(simT);
   if(cam.flight){
     const fl = cam.flight; let t = (now - fl.t0)/fl.dur; if(!(t > 0)) t = 0; if(t >= 1) t = 1;
@@ -312,6 +313,23 @@ function frame(now){
   if(sec !== lastSec || tWarp !== lastWarpShown){ lastSec = sec; lastWarpShown = tWarp;
     const when = fmtClock.format(new Date(simT)); clockEl.textContent = tWarp === 1 ? when : `×${tWarp.toLocaleString()} · ${when}`; }
 }
+
+/* ---------- writings: resting on a date holds the sky (and the clock) at that moment; leaving lets it go, with no animation.
+   Keyboard focus does the same. On a touch screen a tap holds it until the next tap anywhere else. ---------- */
+let held = null, heldFrom = 0;
+function hold(t){ if(held === null) heldFrom = simT; held = t; }
+function release(){ if(held === null) return; held = null; if(tWarp !== 1) simT = heldFrom; }
+for(const d of document.querySelectorAll('.writings .d')){
+  const t = Date.parse(d.dataset.t); if(!Number.isFinite(t)) continue;
+  d.addEventListener('mouseenter', () => hold(t)); d.addEventListener('mouseleave', release);
+  d.addEventListener('focus', () => hold(t)); d.addEventListener('blur', release);
+}
+document.addEventListener('pointerdown', e => {
+  if(e.pointerType === 'mouse') return;
+  const d = e.target.closest && e.target.closest('.writings .d');
+  document.querySelectorAll('.writings .d.on').forEach(x => { if(x !== d) x.classList.remove('on'); });
+  if(d){ d.classList.add('on'); hold(Date.parse(d.dataset.t)); } else release();
+});
 
 /* ---------- start: straight into the inner system, once the canvas has a size ---------- */
 function boot(now){

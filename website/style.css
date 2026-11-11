@@ -23,6 +23,19 @@ h1{font-size:15px;font-weight:400;margin:0}
 /* the clock sits in the bottom-left corner, on the same gutters as the header */
 .clock{position:fixed;left:max(24px,env(safe-area-inset-left,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));margin:0;
   color:var(--mute);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;max-width:34ch;pointer-events:none;z-index:3}
+/* writings, in the bottom-right corner under the links: title, then the date on the outer edge. Resting on a date
+   holds the sky at that moment (see app.js); it has no underline or pointer and only darkens while it does. */
+.writings{position:fixed;right:max(24px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:3;text-align:right;line-height:1.45}
+.writings h2{margin:0 0 4px;font:inherit;color:var(--mute)}
+.writings ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr auto;column-gap:14px;row-gap:1px}
+.writings li{display:contents}
+.writings a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
+.writings a:hover,.writings a:focus-visible{color:var(--mute);outline:none}
+.writings .d{color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap;cursor:default;outline:none}
+.writings .d:hover,.writings .d:focus-visible,.writings .d.on{color:var(--fg)}
+/* on a phone the corner is too narrow beside the clock: the list spans the width just above it */
+@media (max-width:599px){.writings{left:max(24px,env(safe-area-inset-left,0px));bottom:calc(max(22px,env(safe-area-inset-bottom,0px)) + 1.45em + 14px)}
+  .writings a{text-align:left}}
 .links{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex-shrink:0}
 .top a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
 .top a:hover,.top a:focus-visible{color:var(--mute);outline:none}
@@ -68,4 +81,5 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win.flat-x.flat-y .win-grab.se::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3C/svg%3E") no-repeat}
 [hidden]{display:none!important}
-@media (max-width:520px){.top{padding-block:16px}.clock{bottom:max(16px,env(safe-area-inset-bottom,0px))}}
+@media (max-width:520px){.top{padding-block:16px}.clock{bottom:max(16px,env(safe-area-inset-bottom,0px))}
+  .writings{bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 1.45em + 14px)}}
