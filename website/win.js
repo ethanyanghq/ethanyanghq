@@ -96,7 +96,7 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = '', no
 window.makeWindow = makeWindow;
 
 /* The pile: the project windows lie overlapped like papers on a desk, under the header. The whole
-   composition is drawn at 80% of the space between the header and the clock, from the page indent to the middle of
+   composition is drawn at 80% of the space between the header and the clock, centred in it, from the page indent to the middle of
    the screen (the whole width on a phone), so the sky keeps the rest. Each window still shows its page at
    that exact spot, so the rects were chosen for what lands in them; doppel, whose dots fill its whole page, takes the
    left, where every other site is only margin. Later windows lie on top. Armada starts clear of doppel's right edge so
@@ -111,11 +111,14 @@ const PILE = [
 ];
 const X0 = 48;   /* px: the page gutter (24) plus one step in */
 const X1 = innerWidth < 600 ? innerWidth - 24 : Math.min(innerWidth / 2 - 24, X0 + 672);
-const Y0 = document.querySelector('.who').getBoundingClientRect().bottom + 46;   /* the header's last line, plus room for a label */
-const Y1 = document.getElementById('clock').getBoundingClientRect().top - 24;     /* one gutter above the clock */
+const HEAD = document.querySelector('.who').getBoundingClientRect().bottom;    /* the header's last line */
+const CLOCK = document.getElementById('clock').getBoundingClientRect().top;
+const Y0 = HEAD + 46, Y1 = CLOCK - 24;   /* room for a label below the header, one gutter above the clock */
 const SCALE = .8, RW = (X1 - X0) * SCALE, RH = (Y1 - Y0) * SCALE;
+/* the pile is centred on the midpoint between the header and the clock */
+const PY = Math.max(Y0, Math.round((HEAD + CLOCK) / 2 - RH / 2));
 PILE.forEach(({rect: [a, b, c, d], ...p}) => {
-  const x = X0 + Math.round(a * RW), y = Y0 + Math.round(b * RH);
-  makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: Y0 + Math.round(d * RH) - y, ...p});
+  const x = X0 + Math.round(a * RW), y = PY + Math.round(b * RH);
+  makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: PY + Math.round(d * RH) - y, ...p});
 });
 })();
