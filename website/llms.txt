@@ -19,6 +19,10 @@
 - Scout (getscout.me). An AI trip planner you add to your group text. 1st Place, Photon Track, BigRed//Hacks.
 - Ithaca Insights (ithacainsights.com), lead developer. Open-source dashboard showing Ithaca renters whether a listing is overpriced. Vue + Leaflet frontend, FastAPI backend, natural-language map search without an LLM.
 
+## Writing
+
+- [Lessons from Watergate: What We Learned from the Media in Scandal](https://ethanyang.io/writings/watergate). The Concord Review, Volume 34, Number 3, Spring 2024, pp. 171–198. Argues that the press contributed little to the Watergate investigation itself: the FBI, the courts, whistleblowers and congressional committees uncovered it and ended Nixon's presidency, while the media carried their findings to the public and cast itself as a fourth actor in the separation of powers.
+
 ## Links
 
 - [Website](https://ethanyang.io/): live true-scale solar system
