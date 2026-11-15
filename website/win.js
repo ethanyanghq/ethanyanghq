@@ -111,9 +111,9 @@ const PILE = [
 ];
 const X0 = 48;   /* px: the page gutter (24) plus one step in */
 const X1 = innerWidth < 600 ? innerWidth - 24 : Math.min(innerWidth / 2 - 24, X0 + 672);
-const HEAD = document.querySelector('.who').getBoundingClientRect().bottom;    /* the header's last line */
-/* the floor: the clock, or on a phone the writings list, which sits on top of the clock there */
-const CLOCK = document.querySelector(innerWidth < 600 ? '.writings' : '#clock').getBoundingClientRect().top;
+/* the header's last line: the bio's, or on a phone the writings block stacked under it */
+const HEAD = document.querySelector(innerWidth < 600 ? '.writings' : '.who').getBoundingClientRect().bottom;
+const CLOCK = document.querySelector('#clock').getBoundingClientRect().top;   /* the floor */
 const Y0 = HEAD + 46, Y1 = CLOCK - 24;   /* room for a label below the header, one gutter above the floor */
 const SCALE = .8, RW = (X1 - X0) * SCALE, RH = (Y1 - Y0) * SCALE;
 /* the pile is centred on the midpoint between the header and the clock */
