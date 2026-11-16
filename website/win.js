@@ -95,31 +95,22 @@ function makeWindow({x = 40, y = 120, w = 320, h = 200, url = '', label = '', no
 
 window.makeWindow = makeWindow;
 
-/* The pile: the project windows lie overlapped like papers on a desk, under the header. The whole
-   composition is drawn at 80% of the space between the header and the clock, centred in it, from the page indent to the middle of
-   the screen (the whole width on a phone), so the sky keeps the rest. Each window still shows its page at
-   that exact spot, so the rects were chosen for what lands in them; doppel, whose dots fill its whole page, takes the
-   left, where every other site is only margin. Later windows lie on top. Armada starts clear of doppel's right edge so
-   its label never sits on doppel.
-   Rects are [x0, y0, x1, y1] as fractions of that space. They are ordinary windows:
-   drag one out or pull a corner to resize it, and a touched window comes to the top. */
+/* The projects page: the windows lie overlapped like papers on a desk, across the whole screen under the header line.
+   Each window shows its page at that exact spot, so the rects were chosen for what lands in them. Later windows lie on top.
+   Rects are [x0, y0, x1, y1] as fractions of the space between the page gutters, from under the header to the bottom.
+   They are ordinary windows: drag one or pull a corner to resize it, and a touched window comes to the top. */
 const PILE = [
   {url: 'https://doppel.ethanyang.io/', label: 'doppel', rect: [0, .08, .38, .7]},
   {url: 'https://ionyc.netlify.app/', label: 'ideas of new york city', rect: [.3, 0, .86, .3]},
   {url: 'https://armada.build/', label: 'armada', rect: [.42, .52, .72, .92]},
   {url: 'https://getscout.me/', label: 'scout', note: 'BigRed//Hacks, 1st Place (Photon Track)', rect: [.56, .38, .9, .7]},
 ];
-const X0 = 48;   /* px: the page gutter (24) plus one step in */
-const X1 = innerWidth < 600 ? innerWidth - 24 : Math.min(innerWidth / 2 - 24, X0 + 672);
-/* the header's last line: the bio's, or on a phone the writings block stacked under it */
-const HEAD = document.querySelector(innerWidth < 600 ? '.writings' : '.who').getBoundingClientRect().bottom;
-const CLOCK = document.querySelector('#clock').getBoundingClientRect().top;   /* the floor */
-const Y0 = HEAD + 46, Y1 = CLOCK - 24;   /* room for a label below the header, one gutter above the floor */
-const SCALE = .8, RW = (X1 - X0) * SCALE, RH = (Y1 - Y0) * SCALE;
-/* the pile is centred on the midpoint between the header and the clock */
-const PY = Math.max(Y0, Math.round((HEAD + CLOCK) / 2 - RH / 2));
+const GUTTER = 24;
+const HEAD = document.querySelector('.who').getBoundingClientRect().bottom;
+const X0 = GUTTER, Y0 = HEAD + 40;   /* room for a label under the header line */
+const RW = innerWidth - GUTTER - X0, RH = innerHeight - GUTTER - Y0;
 PILE.forEach(({rect: [a, b, c, d], ...p}) => {
-  const x = X0 + Math.round(a * RW), y = PY + Math.round(b * RH);
-  makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: PY + Math.round(d * RH) - y, ...p});
+  const x = X0 + Math.round(a * RW), y = Y0 + Math.round(b * RH);
+  makeWindow({x, y, w: X0 + Math.round(c * RW) - x, h: Y0 + Math.round(d * RH) - y, ...p});
 });
 })();
