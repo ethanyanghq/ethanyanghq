@@ -18,6 +18,8 @@ const layer = document.getElementById('layer');
 const clockEl = document.getElementById('clock');
 const gl = canvas.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false, powerPreference:'high-performance'});
 if(!gl){ console.warn('No WebGL2: the sky is not drawn.'); return; }   /* the clock line keeps its description */
+/* an opaque WebGL canvas starts out black, and the first frame waits on the moon data: paint the paper white now */
+gl.clearColor(1,1,1,1); gl.clear(gl.COLOR_BUFFER_BIT);
 if(!A){ console.warn('The ephemeris failed to load: the sky is not drawn.'); return; }
 
 /* ---------- constants ---------- */
@@ -156,13 +158,13 @@ const ibuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ibuf); gl.bufferD
 for(const [loc, size, off] of [[1,2,0],[2,1,2],[3,3,3],[4,1,6]]){ gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, STRIDE*4, off*4); gl.vertexAttribDivisor(loc, 1); }
 for(let i=0;i<NALL;i++){ const o = i*STRIDE; inst[o+3] = 0; inst[o+4] = 0; inst[o+5] = 0; inst[o+6] = 0;   /* every body is ink-black on the white page */ }
 { const o = NALL*STRIDE; inst[o+3] = inst[o+4] = inst[o+5] = 0.6; inst[o+6] = 1; }
-gl.clearColor(1,1,1,1);
 
 /* ---------- viewport ---------- */
 let vw = 1, vh = 1;
 function resize(){
   vw = canvas.clientWidth || 1; vh = canvas.clientHeight || 1;
-  if(canvas.width !== vw || canvas.height !== vh){ canvas.width = vw; canvas.height = vh; }   /* one CSS pixel per rendered pixel */
+  /* one CSS pixel per rendered pixel. Resizing empties the canvas to black, so whiten it before the next frame draws */
+  if(canvas.width !== vw || canvas.height !== vh){ canvas.width = vw; canvas.height = vh; gl.clear(gl.COLOR_BUFFER_BIT); }
   gl.viewport(0,0,vw,vh); gl.uniform2f(U.uRes, vw, vh);
 }
 new ResizeObserver(resize).observe(canvas); resize();
