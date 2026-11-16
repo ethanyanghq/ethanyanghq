@@ -32,7 +32,8 @@ h1{font:inherit;margin:0}
 .clock{position:fixed;right:max(24px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));margin:0;
   color:var(--mute);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;max-width:34ch;text-align:right;pointer-events:none;z-index:3}
 @media (max-width:599px){.clock{right:auto;left:max(24px,env(safe-area-inset-left,0px));text-align:left}}
-.top a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
+/* the thickness is spelled out: left to the font it comes to a fraction of a pixel, and lines round it differently */
+.top a{color:var(--fg);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 .top a:hover,.top a:focus-visible{color:var(--mute);outline:none}
 /* pages without a sky: the header takes input like any text. The writings page scrolls; the projects page is a fixed desk of windows. */
 .plain .top,.desk .top{pointer-events:auto}
