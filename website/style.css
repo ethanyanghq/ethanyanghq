@@ -1,5 +1,6 @@
 /* The sky is the page. One fixed WebGL canvas rendered at 1 CSS px with no anti-aliasing;
-   a header (bio left, writings right) and body labels are the only HTML. White paper, black ink, Times. */
+   one text column on the left (a line of page links, bio, ledger, contact links) and body labels are the only HTML.
+   The writings and projects pages share the column's first line and have no sky. White paper, black ink, Times. */
 :root{
   color-scheme:light;
   --bg:#fff;
@@ -11,34 +12,32 @@
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--font);overflow:hidden}
 #sky{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:var(--bg);image-rendering:pixelated;image-rendering:crisp-edges}
-.top{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
+.top{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);
   padding-block:22px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));pointer-events:none;z-index:3}
 .top a{pointer-events:auto}
 .who{min-width:0;max-width:420px}
-h1{font-size:15px;font-weight:400;margin:0}
-/* bio, then a two-column ledger: grey key, black entries, the second entry hung under the first */
-.bio{margin:6px 0 0}
-.ledger{display:grid;grid-template-columns:auto 1fr;column-gap:12px;margin-top:6px}
+h1{font:inherit;margin:0}
+/* the column: a line of page links, the bio, the ledger, the contact links, one blank line apart.
+   The page being read is the one word in the first line that is not a link. Slashes are grey. */
+.nav,.links{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
+.nav .s,.links .s{color:var(--mute)}
+.bio{margin:1.45em 0 0}
+/* a two-column ledger: grey key, black entries, the second entry hung under the first */
+.ledger{display:grid;grid-template-columns:auto 1fr;column-gap:12px;margin-top:1.45em}
 .ledger .k{color:var(--mute)}
-/* the clock sits in the bottom-right corner, on the same gutters as the header */
+.links{margin-top:1.45em}
+/* a plain list of links, for the writings page */
+.list{margin:1.45em 0 0;padding:0;list-style:none}
+/* the clock sits in the bottom-right corner, on the same gutters as the header; bottom-left on a phone */
 .clock{position:fixed;right:max(24px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));margin:0;
   color:var(--mute);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;max-width:34ch;text-align:right;pointer-events:none;z-index:3}
-/* writings, top-right: the bio's ledger mirrored. Title, then its grey status on the outer edge; a status is written once
-   and later rows with the same status hang under it (an empty .k). */
-.writings{flex-shrink:0;text-align:right}
-.writings h2{margin:0;font:inherit}
-.writings ul{margin:6px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:auto auto;justify-content:end;column-gap:12px}
-.writings li{display:contents}
-.writings .k{color:var(--mute);white-space:nowrap}
-/* on a phone the header is one column: writings sits under the bio, read left to right like it; the clock goes on the line above the links */
-@media (max-width:599px){.top{flex-direction:column;gap:10px}
-  .writings{text-align:left}.writings ul{justify-content:start}
-  .clock{right:auto;left:max(24px,env(safe-area-inset-left,0px));text-align:left;bottom:calc(max(22px,env(safe-area-inset-bottom,0px)) + 1.45em + 2px)}}
-/* the links, one line in the bottom-left corner */
-.links{position:fixed;left:max(24px,env(safe-area-inset-left,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:3;display:flex;align-items:baseline;gap:6px}
-.links .s{color:var(--mute)}
-.top a,.links a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
-.top a:hover,.top a:focus-visible,.links a:hover,.links a:focus-visible{color:var(--mute);outline:none}
+@media (max-width:599px){.clock{right:auto;left:max(24px,env(safe-area-inset-left,0px));text-align:left}}
+.top a{color:var(--fg);text-decoration:underline;text-underline-offset:2px}
+.top a:hover,.top a:focus-visible{color:var(--mute);outline:none}
+/* pages without a sky: the header takes input like any text. The writings page scrolls; the projects page is a fixed desk of windows. */
+.plain .top,.desk .top{pointer-events:auto}
+.plain{overflow:auto}
+.plain .top{position:static}
 #layer{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:2}
 .lbl{position:absolute;left:0;top:0;transform:translate(-1000px,-1000px);background:none;border:0;padding:2px 4px;margin:0;color:var(--mute);
   font:15px var(--font);cursor:pointer;pointer-events:auto;will-change:transform;white-space:nowrap;line-height:1;text-transform:lowercase}
@@ -81,5 +80,4 @@ h1{font-size:15px;font-weight:400;margin:0}
 .win.flat-x.flat-y .win-grab.se::after{left:9px;top:9px;right:auto;bottom:auto;width:7px;height:7px;border:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='1' y='1' width='1' height='1'/%3E%3Crect x='2' y='2' width='1' height='1'/%3E%3Crect x='3' y='3' width='1' height='1'/%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='5' y='5' width='1' height='1'/%3E%3Crect x='6' y='6' width='1' height='1'/%3E%3C/svg%3E") no-repeat}
 [hidden]{display:none!important}
-@media (max-width:520px){.top{padding-block:16px}.links{bottom:max(16px,env(safe-area-inset-bottom,0px))}
-  .clock{bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 1.45em + 2px)}}
+@media (max-width:520px){.top{padding-block:16px}.clock{bottom:max(16px,env(safe-area-inset-bottom,0px))}}
