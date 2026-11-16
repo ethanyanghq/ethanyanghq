@@ -1,0 +1,3 @@
+# Served at idiolect.ethanyang.io (set up by tools/new_site.py). Static files, no build step.
+[build]
+  publish = "."
